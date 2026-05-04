@@ -1,6 +1,7 @@
 import { createContext, useContext, useEffect, useRef, useState, type RefObject } from "react"
 import useWebSocket, { ReadyState } from "react-use-websocket"
 import { useDmxButtonsContext } from "./DmxButtonsContext"
+import LostConnectionOverlay from "../components/LostConnectionOverlay/LostConnectionOverlay"
 
 interface RealTimeContextType {
     webSocketReadyState: ReadyState
@@ -143,6 +144,7 @@ export const RealTimeContextProvider = ({ children }: {children: React.ReactNode
             debugIncomingWsPayloads,
             debugOutgoingWsPayloads,
             } }>
+            { readyState != WebSocket.OPEN && <LostConnectionOverlay/> }
             {children}
         </RealTimeContext.Provider>
     )

@@ -40,14 +40,14 @@
 
 .small-buttons-bar {
     display: flex;
-    box-shadow: 0 0 8px #000000 inset;
-    background-color: #1d1d1d;
+    background-color: #222;
     border-radius: 20px;
     width: auto;
 
     .small-button {
         border-radius: 0;
         box-shadow: none;
+
         &.active {
             box-shadow: none;
         }

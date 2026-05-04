@@ -27,7 +27,7 @@ function App() {
         
         <div className='section commands-bar'>
           <ProgramSelect/>
-          <Statuses/>
+          
           <div className="small-buttons-bar">
             <SmallButton
                 value={isRecording}
@@ -36,6 +36,7 @@ function App() {
             </SmallButton>
             <AudioPlayer/>
           </div>
+          <Statuses/>
         </div>
 
         <div className="section midi">
