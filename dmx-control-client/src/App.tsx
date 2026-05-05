@@ -30,6 +30,7 @@ function App() {
           
           <div className="small-buttons-bar">
             <SmallButton
+                className="red"
                 value={isRecording}
                 onClick={() => setIsRecording(!isRecording)}>
                 <RecordIcon/>

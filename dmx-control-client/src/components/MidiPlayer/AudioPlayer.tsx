@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from "react"
 import SmallButton from "../DesignSystem/SmallButton/SmallButton"
-import { PauseIcon, PlayIcon, StopIcon } from "../DesignSystem/Icons"
+import { BackToStartIcon, PauseIcon, PlayIcon } from "../DesignSystem/Icons"
 import { useDmxButtonsContext } from "../../contexts/DmxButtonsContext"
 import { getProgramAudio } from "../../ApiClient"
 import { tickToTime, timeToTick } from "./utils"
@@ -85,7 +85,7 @@ const AudioPlayer = () => {
             value={false}
             onClick={onRewindButton}
             disabled={isPlaying}>
-            <StopIcon/>
+            <BackToStartIcon/>
         </SmallButton>
     </>
 }

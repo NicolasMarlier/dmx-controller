@@ -13,10 +13,10 @@
 
     svg {
         fill: #00000044;
-        height: 16px;
+        height: 24px;
+        filter: drop-shadow(2px 2px 2px #000);
     }
 
-    
 
     &.enabled {
         cursor: pointer;
@@ -34,6 +34,15 @@
         
         &:hover {
             transform: scale(1.1);            
+        }
+    }
+
+    &.red {
+        &.enabled {
+            svg { fill: #de3c2a88; }
+            &.active {
+                svg { fill: #de3c2a; }
+            }
         }
     }
 }
