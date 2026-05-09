@@ -86,14 +86,13 @@ const NoteEditor = (props: Props) => {
     const transformMidiNote = (midiNote: MidiNote, x: number, y: number) => {
         const draggedTicks = xToTicks({
             x: x,
-            ticksScroll: ticksScrollRef.current,
+            ticksScroll: 0, // We want ticks offset
             pixelsPerBeat: pixelsPerBeatRef.current,
             magnet: true,
             magnetMode: 'line'
         })
 
         const dragDeltaRow = Math.round(y / NOTE_ROW_HEIGHT)
-        
         return {
             ticks: midiNote.ticks + draggedTicks,
             midi: sortedMidiKeysRef.current[sortedMidiKeysRef.current.indexOf(midiNote.midi) + dragDeltaRow],
@@ -148,12 +147,15 @@ const NoteEditor = (props: Props) => {
     }, [])
 
     const updateSelectedMidiNote = (updatedMidiNotes: MidiNote[]) => {
-        updateSelectedMidiPatternNotes([
+        const newNotes = [
             ...patternRef.current.midi_notes.filter(n => 
                 !midiNotesIncludes(selectedNotesRef.current, n)
             ),
             ...updatedMidiNotes
-        ])
+        ]
+        selectedNotesRef.current = updatedMidiNotes
+        patternRef.current.midi_notes = newNotes
+        updateSelectedMidiPatternNotes(newNotes)
     }
 
     const midiNoteFromXY: (x: number, y: number) => MidiNote | undefined = (x,y) => {

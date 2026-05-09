@@ -9,7 +9,7 @@ import Draggable from '../DesignSystem/Draggable/Draggable.js';
 import { addNoteAtTick, insertPatternsAtTick, magnettedTick, nextFreeTick, toggleLoopForPatterns } from './utils_midi_notes.js';
 import { doRectanglesIntersect, midiPatternToRectangle, PPQ, xToTicks } from './utils.js';
 import CanvasMouseHandler from './CanvasMouseHandler.js';
-import { useDmxMidiContext } from '../../contexts/DmxMidiContext.js';
+import { DmxMidiContextProvider, useDmxMidiContext } from '../../contexts/DmxMidiContext.js';
 import { isSelected, midiPatternsInclude, splitPatternsAtTick, sum } from './utils_midi_patterns.js';
 
 const BEATS_OFFSET = 2
@@ -262,7 +262,7 @@ const MidiPlayer = (props: Props) => {
     const transformMidiPattern: (midiPattern: MidiPattern, x: number, y: number) => MidiPattern = (midiPattern, x, _y) => {
         const deltaTick = xToTicks({
             x,
-            ticksScroll: ticksScrollRef.current,
+            ticksScroll: 0, // We want delta tick
             pixelsPerBeat: pixelsPerBeatRef.current,
             magnet: true,
             magnetBeats: 1
@@ -293,12 +293,15 @@ const MidiPlayer = (props: Props) => {
     }
 
     const updateSelectedMidiPatterns = (updatedMidiPatterns: MidiPattern[]) => {
-        updateProgramDmxMidiAndSync([
+        const newPatterns = [
             ...midiPatternsRef.current.filter(p =>
                 !midiPatternsInclude(selectedMidiPatternsRef.current, p)
             ),
             ...updatedMidiPatterns
-        ])
+        ]
+        selectedMidiPatternsRef.current = updatedMidiPatterns
+        midiPatternsRef.current = newPatterns
+        updateProgramDmxMidiAndSync(newPatterns)
     }
 
     

@@ -43,20 +43,8 @@ const CanvasMouseHandler = <T,>(props: Props<T>) => {
 
     const canvasTop = () => canvasRef.current?.getBoundingClientRect().top || 0
     const canvasLeft = () => canvasRef.current?.getBoundingClientRect().left || 0
-    
-    const didMouseMovedWhileDown = () => (
-        selectionRef.current && (
-                Math.abs(selectionRef.current.rect.x1 - selectionRef.current.rect.x0) >= 2 ||
-                Math.abs(selectionRef.current.rect.y1 - selectionRef.current.rect.y0) >= 2
-        )
-    )
-
 
     const onMouseUp = (_event: MouseEvent) => {
-        if(!didMouseMovedWhileDown()) {
-            selectionRef.current = null
-            return
-        }
 
         if(selectionRef.current?.mode == 'drag') {
             const deltaX = selectionRef.current.rect.x1 - selectionRef.current.rect.x0
@@ -72,15 +60,6 @@ const CanvasMouseHandler = <T,>(props: Props<T>) => {
         
     }
 
-    const magnetXToTicks = (x: number) => xToTicks({
-        x,
-        ticksScroll: ticksScrollRef.current,
-        pixelsPerBeat: pixelsPerBeatRef.current,
-        magnet: true,
-        magnetMode: 'line',
-        x0,
-    })
-
     const setSelectedItems = (items: T[]) => {
         selectedItemsRef.current = items
         if(onSelectedItemsChange) onSelectedItemsChange()
@@ -93,7 +72,18 @@ const CanvasMouseHandler = <T,>(props: Props<T>) => {
             event.clientY - canvasTop() < timelineHeight) {
             
             selectionRef.current = null
-            sendCurrentTickToServer(magnetXToTicks(event.clientX - canvasLeft()))
+            const magnetBeats = pixelsPerBeatRef.current > 20 ? 0.25 : 1
+            sendCurrentTickToServer(
+                xToTicks({
+                    x: event.clientX - canvasLeft(),
+                    ticksScroll: ticksScrollRef.current,
+                    pixelsPerBeat: pixelsPerBeatRef.current,
+                    magnet: true,
+                    magnetMode: 'line',
+                    magnetBeats,
+                    x0,
+                })
+            )
         }
         else if(event.clientY - canvasTop() > timelineHeight) {
             const x = event.clientX - canvasLeft()

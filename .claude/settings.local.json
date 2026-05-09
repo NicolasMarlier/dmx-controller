@@ -8,7 +8,29 @@
       "Bash(npm run *)",
       "Bash(curl -s http://localhost:5173)",
       "Bash(npx vitest *)",
-      "Bash(chmod +x *)"
+      "Bash(chmod +x *)",
+      "Bash(npm --version)",
+      "Bash(npx react-native@0.76 init DmxControlNative --directory dmx-control-native --skip-install)",
+      "Bash(npx @react-native-community/cli@15 init DmxControlNative --directory /Users/nicolasmarlier/perso/dmx-control/dmx-control-native --version 0.76.9 --skip-install)",
+      "Bash(npx react-native-macos-init@0.76 --overwrite)",
+      "Bash(npm view *)",
+      "Bash(python3 -c \"import sys,json; vs=json.load\\(sys.stdin\\); print\\([v for v in vs if v.startswith\\('0.76'\\)][-5:]\\)\")",
+      "Bash(npx react-native-macos-init@latest --overwrite)",
+      "Bash(python3 -c \"import sys,json; vs=json.load\\(sys.stdin\\); print\\(vs[-15:]\\)\")",
+      "Bash(pod --version)",
+      "Bash(gem --version)",
+      "Bash(bundle --version)",
+      "Bash(bundle install *)",
+      "Bash(bundle exec *)",
+      "Bash(arch -arm64 bundle exec pod install --project-directory=macos)",
+      "Bash(/opt/homebrew/bin/gem install *)",
+      "Bash(brew install *)",
+      "Bash(/usr/local/bin/pod *)",
+      "Bash(npx react-native *)",
+      "Bash(sudo xcodebuild -runFirstLaunch)",
+      "Bash(xcodebuild -runFirstLaunch)",
+      "Bash(echo \"Metro PID: $!\")",
+      "Bash(curl -s http://localhost:8081/status)"
     ]
   }
 }
