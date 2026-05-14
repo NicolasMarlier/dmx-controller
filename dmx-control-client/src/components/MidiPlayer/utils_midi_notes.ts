@@ -1,5 +1,13 @@
 export const midiNoteEqual = (a: MidiNote, b: MidiNote) => a.midi == b.midi && a.ticks == b.ticks
 
+
+export const midiNoteArrayEqual = (a: MidiNote[], b: MidiNote[]) => {
+    if(a.length != b.length) return false
+    const sortedA = a.toSorted((mp1, mp2) => mp2.ticks - mp1.ticks)
+    const sortedB = b.toSorted((mp1, mp2) => mp2.ticks - mp1.ticks)
+    return sortedA.every((mn, i) => midiNoteEqual(mn, sortedB[i]))
+}
+
 export const PPQ = 480
 
 

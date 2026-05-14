@@ -9,8 +9,8 @@ import Draggable from '../DesignSystem/Draggable/Draggable.js';
 import { addNoteAtTick, insertPatternsAtTick, magnettedTick, nextFreeTick, toggleLoopForPatterns } from './utils_midi_notes.js';
 import { doRectanglesIntersect, midiPatternToRectangle, PPQ, xToTicks } from './utils.js';
 import CanvasMouseHandler from './CanvasMouseHandler.js';
-import { DmxMidiContextProvider, useDmxMidiContext } from '../../contexts/DmxMidiContext.js';
-import { isSelected, midiPatternsInclude, splitPatternsAtTick, sum } from './utils_midi_patterns.js';
+import { useDmxMidiContext } from '../../contexts/DmxMidiContext.js';
+import { isSelected, midiPatternArrayEqual, midiPatternsInclude, splitPatternsAtTick, sum } from './utils_midi_patterns.js';
 
 const BEATS_OFFSET = 2
 
@@ -293,6 +293,8 @@ const MidiPlayer = (props: Props) => {
     }
 
     const updateSelectedMidiPatterns = (updatedMidiPatterns: MidiPattern[]) => {
+        if(midiPatternArrayEqual(selectedMidiPatternsRef.current, updatedMidiPatterns)) return
+        
         const newPatterns = [
             ...midiPatternsRef.current.filter(p =>
                 !midiPatternsInclude(selectedMidiPatternsRef.current, p)

@@ -1,3 +1,5 @@
+import { midiNoteArrayEqual } from "./utils_midi_notes"
+
 export const splitPatternsAtTick = (midiPatterns: MidiPattern[], tick: number) => {
     let newPatterns = [] as MidiPattern[]
     midiPatterns.forEach((pattern) => {
@@ -29,6 +31,20 @@ export const midiPatternsInclude = (midiPatterns: MidiPattern[], midiPattern: Mi
 export const isSelected = (midiPattern: MidiPattern, selectedMidiPatterns: MidiPattern[]) => midiPatternsInclude(
     selectedMidiPatterns, midiPattern
 )
+
+export const midiPatternEqual = (a: MidiPattern, b: MidiPattern) => {
+    if(a.ticks != b.ticks) return false
+    if(a.durationTicks != b.durationTicks) return false
+    if(a.loop_until_tick != b.loop_until_tick) return false
+    return midiNoteArrayEqual(a.midi_notes, b.midi_notes)
+}
+
+export const midiPatternArrayEqual = (a: MidiPattern[], b: MidiPattern[]) => {
+    if(a.length != b.length) return false
+    const sortedA = a.toSorted((mp1, mp2) => mp2.ticks - mp1.ticks)
+    const sortedB = b.toSorted((mp1, mp2) => mp2.ticks - mp1.ticks)
+    return sortedA.every((mp, i) => midiPatternEqual(mp, sortedB[i]))
+}
 
 export const sum: (midiPatterns: MidiPattern[]) => MidiPattern = (midiPatterns) => {
     const ticks = midiPatterns.reduce((min, p) => Math.min(p.ticks, min), midiPatterns[0].ticks)
