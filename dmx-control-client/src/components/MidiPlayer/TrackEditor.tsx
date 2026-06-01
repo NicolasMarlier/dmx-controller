@@ -56,8 +56,11 @@ const MidiPlayer = (props: Props) => {
 
     const ghostMidiPatternRef = useRef<MidiPattern | undefined>(undefined)
 
+    const updateProgramDmxMidiAndSyncRef = useRef(updateProgramDmxMidiAndSync)
+    updateProgramDmxMidiAndSyncRef.current = updateProgramDmxMidiAndSync
+
     const splitAtCurrentTick = () => {
-        updateProgramDmxMidiAndSync(splitPatternsAtTick(midiPatternsRef.current, midiCurrentTickRef.current))
+        updateProgramDmxMidiAndSyncRef.current(splitPatternsAtTick(midiPatternsRef.current, midiCurrentTickRef.current))
         selectedMidiPatternsRef.current = []
     }
 
@@ -68,7 +71,7 @@ const MidiPlayer = (props: Props) => {
 
 
     const deleteSelectedMidiPatterns = () => {
-        updateProgramDmxMidiAndSync(
+        updateProgramDmxMidiAndSyncRef.current(
             midiPatternsRef.current.filter(midiPattern => !isSelected(midiPattern, selectedMidiPatternsRef.current))
         )
     }
@@ -78,7 +81,7 @@ const MidiPlayer = (props: Props) => {
     }
 
     const pasteSelectedMidiPatterns = () => {
-        updateProgramDmxMidiAndSync(
+        updateProgramDmxMidiAndSyncRef.current(
             insertPatternsAtTick({
                 midiPatterns: midiPatternsRef.current,
                 midiPatternsToInsert: clipboard.current,
@@ -89,7 +92,7 @@ const MidiPlayer = (props: Props) => {
     }
 
     const joinSelection = () => {
-        updateProgramDmxMidiAndSync(
+        updateProgramDmxMidiAndSyncRef.current(
             [
                 ...midiPatternsRef.current.filter(midiPattern => !isSelected(midiPattern, selectedMidiPatternsRef.current)),
                 ...[sum(selectedMidiPatternsRef.current)]
@@ -99,7 +102,7 @@ const MidiPlayer = (props: Props) => {
 
     const toggleLoop = () => {
         if(!selectedMidiPatternsRef.current) return
-        updateProgramDmxMidiAndSync(toggleLoopForPatterns(midiPatternsRef.current, selectedMidiPatternsRef.current))
+        updateProgramDmxMidiAndSyncRef.current(toggleLoopForPatterns(midiPatternsRef.current, selectedMidiPatternsRef.current))
     }
 
     const onKeyDown = (e: KeyboardEvent) => {
@@ -143,7 +146,7 @@ const MidiPlayer = (props: Props) => {
         if(!recordingPatternRef.current) return
         if(recordingPatternRef.current.midi_notes.length == 0) return
 
-        updateProgramDmxMidiAndSync([...midiPatternsRef.current, ...[recordingPatternRef.current]])
+        updateProgramDmxMidiAndSyncRef.current([...midiPatternsRef.current, ...[recordingPatternRef.current]])
         recordingPatternRef.current = null
     }
 
@@ -278,6 +281,7 @@ const MidiPlayer = (props: Props) => {
 
     const patternFromXY: (x: number, y: number) => MidiPattern | undefined = (x,y) => {
         if(y < 20 || y > 50) return undefined
+        return undefined
 
         return {
             ticks: xToTicks({
@@ -303,7 +307,7 @@ const MidiPlayer = (props: Props) => {
         ]
         selectedMidiPatternsRef.current = updatedMidiPatterns
         midiPatternsRef.current = newPatterns
-        updateProgramDmxMidiAndSync(newPatterns)
+        updateProgramDmxMidiAndSyncRef.current(newPatterns)
     }
 
     

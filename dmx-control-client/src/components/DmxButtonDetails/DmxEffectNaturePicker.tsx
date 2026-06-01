@@ -5,7 +5,7 @@ interface Props {
 const DmxEffectNaturePicker = (props: Props) => {
     const {value, onChange} = props
 
-    const DmxEffectNatures = ['Boom', 'Set', 'Run', 'Toggle']
+    const DmxEffectNatures = ['Boom', 'Set', 'Run', 'InverseRun', 'Toggle']
 
     return <select value={value} onChange={(e) => {
         const newNature = (DmxEffectNatures.find(n => n == e.target.value) || 'Set') as DmxEffectNature

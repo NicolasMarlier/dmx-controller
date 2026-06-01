@@ -4,7 +4,7 @@ import { useRealTimeContext } from "../../contexts/RealTimeContext";
 
 
 const DmxScene = () => {
-    const { dmxButtons, selectedDmxButtonId } = useDmxButtonsContext()
+    const { dmxButtons, selectedDmxButtonId, ledBarConfigs } = useDmxButtonsContext()
     const { dmxHexSignal } = useRealTimeContext()
 
     const { updateDmxButtonAndSync } = useDmxButtonsContext()
@@ -23,9 +23,15 @@ const DmxScene = () => {
     }
 
     return <div>
-      <LedBar dmxHexSignal={dmxHexSignal} size={8} channel={1} selectedRedChannels={selectedRedChannels} onSelectRedChannels={onSelectRedChannels}/>
-      <LedBar dmxHexSignal={dmxHexSignal} size={8} channel={25} selectedRedChannels={selectedRedChannels} onSelectRedChannels={onSelectRedChannels}/>
-      <LedBar dmxHexSignal={dmxHexSignal} size={1} channel={49} selectedRedChannels={selectedRedChannels} onSelectRedChannels={onSelectRedChannels}/>
+      { ledBarConfigs.map(ledBarConfig => (
+          <LedBar
+            dmxHexSignal={dmxHexSignal}
+            size={ledBarConfig.rgbDotsCount}
+            channel={ledBarConfig.channel}
+            selectedRedChannels={selectedRedChannels}
+            onSelectRedChannels={onSelectRedChannels}/>
+      ))}
+      
     </div>
 }
 

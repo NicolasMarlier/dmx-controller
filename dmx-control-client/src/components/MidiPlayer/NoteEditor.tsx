@@ -2,7 +2,7 @@ import './NoteEditor.scss'
 import { useEffect, useRef } from 'react'
 import { NOTE_ROW_HEIGHT, PIANO_KEY_WIDTH, TIMELINE_HEIGHT, midiNoteToRectangle, redrawNoteEditor } from './NoteEditorCanvasDrawer'
 import { doRectanglesIntersect, PPQ, xToTicks } from './utils'
-import { buildRowKeys, midiNotesIncludes } from './utils_midi_notes'
+import { buildRowKeys, midiNotesArrayEqual, midiNotesIncludes } from './utils_midi_notes'
 import { useDmxMidiContext } from '../../contexts/DmxMidiContext'
 import { useRealTimeContext } from '../../contexts/RealTimeContext'
 import CanvasMouseHandler from './CanvasMouseHandler'
@@ -102,6 +102,8 @@ const NoteEditor = (props: Props) => {
 
     const onKeyDown = (e: KeyboardEvent) => {
         if (!isFocusedRef.current) return
+        if((e.target as any).localName == 'input') return
+        
         if (e.key === 'Backspace' && selectedNotesRef.current.length > 0) {
             e.preventDefault()
             const toRemove = new Set(selectedNotesRef.current.map(n => `${n.ticks}:${n.midi}`))
@@ -147,6 +149,7 @@ const NoteEditor = (props: Props) => {
     }, [])
 
     const updateSelectedMidiNote = (updatedMidiNotes: MidiNote[]) => {
+        if(midiNotesArrayEqual(selectedNotesRef.current, updatedMidiNotes)) return
         const newNotes = [
             ...patternRef.current.midi_notes.filter(n => 
                 !midiNotesIncludes(selectedNotesRef.current, n)
@@ -213,5 +216,4 @@ const NoteEditor = (props: Props) => {
         </div>
     )
 }
-
 export default NoteEditor

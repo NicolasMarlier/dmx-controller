@@ -99,3 +99,8 @@ type MouseSelection = {
     mode: 'drag' | 'select',
     rect: Rectangle
 }
+
+type LedBarConfig = {
+    channel: number,
+    rgbDotsCount: number
+}

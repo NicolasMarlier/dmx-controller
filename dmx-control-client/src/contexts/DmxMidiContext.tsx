@@ -32,16 +32,14 @@ export const useDmxMidiContext = () => {
 export const DmxMidiContextProvider = ({ children }: {children: React.ReactNode}) => {
  
     const { currentProgramId, dmxButtons } = useDmxButtonsContext()
-    const currentProgramIdRef = useRef<number>(currentProgramId)
-    currentProgramIdRef.current = currentProgramId
 
     const [selectedMidiPatterns, setSelectedMidiPatterns] = useState<MidiPattern[]>([])
     const [midiPatterns, setMidiPatterns] = useState<MidiPattern[]>([])
 
     const fetchDmxMidi = () => {
-        if(!currentProgramIdRef.current) return
+        if(!currentProgramId) return
 
-        getProgramDmxMidi(currentProgramIdRef.current).then((dmxMidi) => {
+        getProgramDmxMidi(currentProgramId).then((dmxMidi) => {
             setMidiPatterns(dmxMidi.midi_patterns)
             setSelectedMidiPatterns(prev =>
                 prev.map(sp => dmxMidi.midi_patterns.find(p => p.ticks === sp.ticks) ?? sp)
@@ -49,8 +47,8 @@ export const DmxMidiContextProvider = ({ children }: {children: React.ReactNode}
         })
     }
     const updateProgramDmxMidiAndSync = (midiPatterns: MidiPattern[]) => {
-        if(!currentProgramIdRef.current) return
-        updateProgramDmxMidi(currentProgramIdRef.current, {midi_patterns: midiPatterns}).then(
+        if(!currentProgramId) return
+        updateProgramDmxMidi(currentProgramId, {midi_patterns: midiPatterns}).then(
             fetchDmxMidi
         )
     }

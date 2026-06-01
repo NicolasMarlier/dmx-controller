@@ -7,6 +7,7 @@ import DmxRun from "./dmx/effects/DmxRun"
 import DmxToggle from "./dmx/effects/DmxToggle"
 import { Program } from "./sequelize/models/program"
 import { DmxMidiHandler } from "./dmx_midi_handler"
+import DmxInverseRun from "./dmx/effects/DmxInverseRun"
 
 const LOOP_INTERVAL_MS = 20
 
@@ -101,6 +102,7 @@ export class DmxLoop extends EventEmitter {
             'Set': DmxSet,
             'Boom': DmxBoom,
             'Run': DmxRun,
+            'InverseRun': DmxInverseRun,
             'Toggle': DmxToggle,
         }[dmxButton.nature]
 

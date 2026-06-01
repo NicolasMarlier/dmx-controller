@@ -1,4 +1,5 @@
 
+import { useDmxButtonsContext } from '../../contexts/DmxButtonsContext'
 import { humanizeMidiKey } from '../../utils'
 import './DmxButton.scss' 
 
@@ -16,9 +17,11 @@ const DmxButton = (props: Props) => {
         isPlaying,
         dmxButton: dmxButton
     } = props
+    const { ledBarConfigs } = useDmxButtonsContext()
 
-    const highIsLighted = dmxButton.red_channels.some(c => c < 25)
-    const lowIsLighted = dmxButton.red_channels.some(c => c >= 25)
+    const isLighted = (dmxButton: DmxButton, ledBarConfig: LedBarConfig) => (
+        dmxButton.red_channels.some(c => c >= ledBarConfig.channel && c < ledBarConfig.channel + ledBarConfig.rgbDotsCount * 3)
+    )
 
     return <div className={`dmx-button ${isPlaying ? 'playing': ''} ${selected ? 'selected' : ''}`}
         onClick={onTap}>
@@ -26,8 +29,11 @@ const DmxButton = (props: Props) => {
             { dmxButton.triggering_midi_key && <div className="triggering-midi-key">
                 { humanizeMidiKey(dmxButton.triggering_midi_key) }
             </div> }
-            <div className='color-symbol high' style={highIsLighted ? {background: dmxButton.color} : {}}/>
-            <div className='color-symbol low' style={lowIsLighted ? {background: dmxButton.color} : {}}/>
+            <div className='color-symbols'>
+                { ledBarConfigs.map(ledBarConfig => (
+                    <div className='color-symbol' style={isLighted(dmxButton, ledBarConfig) ? {background: dmxButton.color} : {}}/>
+                ))}
+            </div>
         </div>
 }
 

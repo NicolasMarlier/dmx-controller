@@ -43,17 +43,25 @@
         border-radius: 3px;
     }
 
-    .color-symbol {
+    .color-symbols {
         position: absolute;
         width: 10px;
-        height: 10px;
+        top: 30px;
         bottom: 5px;
-        right: 5px;
-        border-radius: 5px;
-        background-color: #000000aa;
+        right: 2px;
+        
 
-        &.high {
-            bottom: 20px;
+        display: flex;
+        flex-direction: column;
+        justify-content: flex-end;
+        row-gap: 2px;
+
+        .color-symbol {
+            background-color: #000000aa;
+            border-radius: 2px;
+            aspect-ratio: 1 / 1;
+            flex: 0 1 1px;
+            width: 6px;
         }
     }
 

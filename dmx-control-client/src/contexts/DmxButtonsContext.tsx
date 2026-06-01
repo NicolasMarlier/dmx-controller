@@ -16,6 +16,8 @@ interface DmxButtonsContextType {
   
   syncPrograms: () => void
 
+  ledBarConfigs: LedBarConfig[],
+
   createDmxButtonAndSync: () => void
   updateDmxButtonAndSync: (id: string, params: DmxButtonUpdateParams) => void,
   deleteDmxButtonAndSync: (id: string) => void
@@ -95,6 +97,14 @@ export const DmxButtonsContextProvider = ({ children }: {children: React.ReactNo
 
   useEffect(() => { syncPrograms() }, []) 
 
+  const ledBarConfigs = [
+    {channel: 1, rgbDotsCount: 8},
+    {channel: 25, rgbDotsCount: 8},
+    {channel: 49, rgbDotsCount: 8},
+    {channel: 73, rgbDotsCount: 8},
+    {channel: 97, rgbDotsCount: 8},
+    {channel: 121, rgbDotsCount: 1},
+  ]
   
 
   const [selectedDmxButtonId, setSelectedDmxButtonId] = useState(undefined as string | undefined)  
@@ -109,6 +119,8 @@ export const DmxButtonsContextProvider = ({ children }: {children: React.ReactNo
         syncPrograms,
 
         currentProgramId, setCurrentProgramId,
+
+        ledBarConfigs,
 
         createDmxButtonAndSync, updateDmxButtonAndSync, deleteDmxButtonAndSync,
         } }>
