@@ -15,7 +15,8 @@ const AudioPlayer = () => {
 
     const fetchAudioUrl = () => {
         if(program?.id) {
-            getProgramAudio(program.id).then((audioUrl) => setAudioUrl(audioUrl || undefined))
+            getProgramAudio(program.id)
+                .then((audioUrl) => { setAudioUrl(audioUrl || undefined) })
         }
         else {
             setAudioUrl(undefined)
@@ -23,9 +24,17 @@ const AudioPlayer = () => {
     }
 
 
-    useEffect(fetchAudioUrl, [program])
+    useEffect(fetchAudioUrl, [program?.id])
 
     const audioRef = useRef<HTMLAudioElement>(null)
+
+    useEffect(() => {
+        if (!audioUrl && audioRef.current) {
+            audioRef.current.pause()
+            audioRef.current.src = ''
+            setIsPlaying(false)
+        }
+    }, [audioUrl])
 
     const pause = () => {
         if(!audioRef.current) return 
