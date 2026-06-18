@@ -1,4 +1,4 @@
-import { useEffect, type RefObject } from "react";
+import { useEffect, useRef, type RefObject } from "react";
 import { xToTicks } from "./utils";
 import { useDmxMidiContext } from "../../contexts/DmxMidiContext";
 import { useRealTimeContext } from "../../contexts/RealTimeContext";
@@ -27,55 +27,62 @@ const CanvasMouseHandler = <T,>(props: Props<T>) => {
         ticksScrollRef,
         pixelsPerBeatRef,
         selectionRef,
-        timelineHeight,
         selectedItemsRef,
-        onSelectedItemsChange,
-        itemsInRect,
-        transformItem,
-        updateSelectedItems,
-        itemFromXY,
         ghostItemRef,
-        isItemInSelection = (item: T, selected: T[]) => selected.includes(item),
-        x0 = 0,
-        editorMode = 'TrackEditor',
     } = props
 
     const { setActiveEditor } = useDmxMidiContext()
     const { sendCurrentTickToServer } = useRealTimeContext()
 
+    // Keep all non-ref props fresh so the registered-once handlers never use stale closures
+    const p = useRef({
+        ...props,
+        isItemInSelection: props.isItemInSelection ?? ((item: T, selected: T[]) => selected.includes(item)),
+        x0: props.x0 ?? 0,
+        editorMode: props.editorMode ?? 'TrackEditor' as const,
+        setActiveEditor,
+        sendCurrentTickToServer,
+    })
+    p.current = {
+        ...props,
+        isItemInSelection: props.isItemInSelection ?? ((item: T, selected: T[]) => selected.includes(item)),
+        x0: props.x0 ?? 0,
+        editorMode: props.editorMode ?? 'TrackEditor' as const,
+        setActiveEditor,
+        sendCurrentTickToServer,
+    }
+
     const canvasTop = () => canvasRef.current?.getBoundingClientRect().top || 0
     const canvasLeft = () => canvasRef.current?.getBoundingClientRect().left || 0
 
     const onMouseUp = (_event: MouseEvent) => {
-
         if(selectionRef.current?.mode == 'drag') {
             const deltaX = selectionRef.current.rect.x1 - selectionRef.current.rect.x0
             const deltaY = selectionRef.current.rect.y1 - selectionRef.current.rect.y0
-            updateSelectedItems(
-                selectedItemsRef.current.map(i => transformItem(i, deltaX, deltaY))
+            p.current.updateSelectedItems(
+                selectedItemsRef.current.map(i => p.current.transformItem(i, deltaX, deltaY))
             )
         }
         else if(ghostItemRef.current) {
-            updateSelectedItems([ghostItemRef.current])
+            p.current.updateSelectedItems([ghostItemRef.current])
         }
         selectionRef.current = null
-        
     }
 
     const setSelectedItems = (items: T[]) => {
         selectedItemsRef.current = items
-        if(onSelectedItemsChange) onSelectedItemsChange()
+        if(p.current.onSelectedItemsChange) p.current.onSelectedItemsChange()
     }
 
     const onMouseDown = (event: MouseEvent) => {
-        setActiveEditor(editorMode)
+        p.current.setActiveEditor(p.current.editorMode)
 
         if(event.clientY - canvasTop() >= 0 &&
-            event.clientY - canvasTop() < timelineHeight) {
-            
+            event.clientY - canvasTop() < p.current.timelineHeight) {
+
             selectionRef.current = null
             const magnetBeats = pixelsPerBeatRef.current > 20 ? 0.25 : 1
-            sendCurrentTickToServer(
+            p.current.sendCurrentTickToServer(
                 xToTicks({
                     x: event.clientX - canvasLeft(),
                     ticksScroll: ticksScrollRef.current,
@@ -83,14 +90,14 @@ const CanvasMouseHandler = <T,>(props: Props<T>) => {
                     magnet: true,
                     magnetMode: 'line',
                     magnetBeats,
-                    x0,
+                    x0: p.current.x0,
                 })
             )
         }
-        else if(event.clientY - canvasTop() > timelineHeight) {
+        else if(event.clientY - canvasTop() > p.current.timelineHeight) {
             const x = event.clientX - canvasLeft()
             const y = event.clientY - canvasTop()
-            const items = itemsInRect({x0:x, y0:y, x1: x, y1: y})
+            const items = p.current.itemsInRect({x0:x, y0:y, x1: x, y1: y})
 
             if(items.length == 0) {
                 setSelectedItems([])
@@ -105,7 +112,7 @@ const CanvasMouseHandler = <T,>(props: Props<T>) => {
                 }
             }
             else {
-                const clickedItemAlreadySelected = items.some(item => isItemInSelection(item, selectedItemsRef.current))
+                const clickedItemAlreadySelected = items.some(item => p.current.isItemInSelection(item, selectedItemsRef.current))
                 if(event.shiftKey) {
                     setSelectedItems([...selectedItemsRef.current, ...items])
                 }
@@ -121,7 +128,7 @@ const CanvasMouseHandler = <T,>(props: Props<T>) => {
                         y1: event.clientY - canvasTop(),
                     }
                 }
-            }            
+            }
         }
     }
 
@@ -139,7 +146,7 @@ const CanvasMouseHandler = <T,>(props: Props<T>) => {
                 }
             }
             if(selectionRef.current.mode == 'select') {
-                setSelectedItems(itemsInRect(selectionRef.current.rect))
+                setSelectedItems(p.current.itemsInRect(selectionRef.current.rect))
             }
         }
     }
@@ -149,7 +156,7 @@ const CanvasMouseHandler = <T,>(props: Props<T>) => {
     )(event)
 
     const onMouseUpMove = (event: MouseEvent) => {
-        if(itemsInRect({
+        if(p.current.itemsInRect({
             x0: event.clientX - canvasLeft(),
             y0: event.clientY - canvasTop(),
             x1: event.clientX - canvasLeft(),
@@ -158,7 +165,7 @@ const CanvasMouseHandler = <T,>(props: Props<T>) => {
             ghostItemRef.current = undefined
         }
         else {
-            ghostItemRef.current = itemFromXY(
+            ghostItemRef.current = p.current.itemFromXY(
                 event.clientX - canvasLeft(),
                 event.clientY - canvasTop()
             )
@@ -167,8 +174,8 @@ const CanvasMouseHandler = <T,>(props: Props<T>) => {
 
     const onWheel = (e: WheelEvent) => {
         e.preventDefault()
-        setActiveEditor(editorMode)
-        
+        p.current.setActiveEditor(p.current.editorMode)
+
         if(Math.abs(e.deltaX) > Math.abs(e.deltaY) && e.deltaX != 0) {
             const scrollAmount = (e.deltaX) * 1000
             ticksScrollRef.current = Math.max(0, ticksScrollRef.current + scrollAmount / pixelsPerBeatRef.current)
@@ -178,7 +185,7 @@ const CanvasMouseHandler = <T,>(props: Props<T>) => {
             pixelsPerBeatRef.current =  Math.min(Math.max(2, pixelsPerBeatRef.current*zoomRatio), 200)
         }
     }
-    
+
 
     useEffect(() => {
         document.addEventListener('mouseup', onMouseUp)
