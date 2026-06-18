@@ -6,6 +6,7 @@ interface Props {
     dmxHexSignal: string
     size: number
     channel: number
+    style?: LedBarStyle
     selectedRedChannels: number[]
     onSelectRedChannels: (channels: number[], selected: boolean) => void
 }
@@ -18,7 +19,7 @@ const dmxSignalAtChannel = (dmxHexSignal: DmxHexSignal, channel: number) => {
 
 
 const LedBar = (props: Props) => {
-    const { size, dmxHexSignal, channel, selectedRedChannels, onSelectRedChannels} = props
+    const { size, dmxHexSignal, channel, selectedRedChannels, onSelectRedChannels, style } = props
     
     const redChannels = Array.from(Array(size).keys()).map((i) => channel + i * 3)
     const selected = redChannels.every(redChannel => selectedRedChannels.includes(redChannel))
@@ -33,6 +34,7 @@ const LedBar = (props: Props) => {
     
     return <div className={`led-bar ${selected ? 'selected': ''}`}
         onClick={handleClick}
+        style={style}
         >
         { redChannels.map((redChannel) => (
             <RgbDot

@@ -1,3 +1,4 @@
+import './DmxScene.scss'
 import LedBar from "./LedBar";
 import { useDmxButtonsContext } from "../../contexts/DmxButtonsContext";
 import { useRealTimeContext } from "../../contexts/RealTimeContext";
@@ -22,9 +23,10 @@ const DmxScene = () => {
       }
     }
 
-    return <div>
+    return <div className='dmx-scene'>
       { ledBarConfigs.map(ledBarConfig => (
           <LedBar
+            style={ledBarConfig.style}
             dmxHexSignal={dmxHexSignal}
             size={ledBarConfig.rgbDotsCount}
             channel={ledBarConfig.channel}

@@ -102,5 +102,14 @@ type MouseSelection = {
 
 type LedBarConfig = {
     channel: number,
-    rgbDotsCount: number
+    rgbDotsCount: number,
+    style?: LedBarStyle
+}
+
+type LedBarStyle = {
+    transform?: string,
+    left?: string,
+    right?: string,
+    top?: string,
+    bottom?: string
 }
