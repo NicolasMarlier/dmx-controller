@@ -17,7 +17,8 @@ interface Props<T> {
     itemFromXY: (x: number, y: number) => T | undefined,
     ghostItemRef: RefObject<T | undefined>,
     isItemInSelection?: (item: T, selectedItems: T[]) => boolean,
-    x0?: number
+    x0?: number,
+    editorMode?: 'TrackEditor' | 'PatternEditor',
 }
 
 const CanvasMouseHandler = <T,>(props: Props<T>) => {
@@ -35,7 +36,8 @@ const CanvasMouseHandler = <T,>(props: Props<T>) => {
         itemFromXY,
         ghostItemRef,
         isItemInSelection = (item: T, selected: T[]) => selected.includes(item),
-        x0 = 0
+        x0 = 0,
+        editorMode = 'TrackEditor',
     } = props
 
     const { setActiveEditor } = useDmxMidiContext()
@@ -66,7 +68,7 @@ const CanvasMouseHandler = <T,>(props: Props<T>) => {
     }
 
     const onMouseDown = (event: MouseEvent) => {
-        setActiveEditor('TrackEditor')
+        setActiveEditor(editorMode)
 
         if(event.clientY - canvasTop() >= 0 &&
             event.clientY - canvasTop() < timelineHeight) {
@@ -165,7 +167,7 @@ const CanvasMouseHandler = <T,>(props: Props<T>) => {
 
     const onWheel = (e: WheelEvent) => {
         e.preventDefault()
-        setActiveEditor('TrackEditor')
+        setActiveEditor(editorMode)
         
         if(Math.abs(e.deltaX) > Math.abs(e.deltaY) && e.deltaX != 0) {
             const scrollAmount = (e.deltaX) * 1000

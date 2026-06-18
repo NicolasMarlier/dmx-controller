@@ -15,7 +15,7 @@ interface Props {
 const NoteEditor = (props: Props) => {
     const { pattern } = props
     const {
-        updateSelectedMidiPatternNotes, allMidiKeys, activeEditor, setActiveEditor,
+        updateSelectedMidiPatternNotes, allMidiKeys, activeEditor,
     } = useDmxMidiContext()
 
     const { midiCurrentTickRef } = useRealTimeContext()
@@ -184,8 +184,7 @@ const NoteEditor = (props: Props) => {
 
     return (
         <div
-            className={`note-editor${isFocused ? ' note-editor--focused' : ''}`}
-            onMouseDown={() => setActiveEditor('PatternEditor')}>
+            className={`note-editor${isFocused ? ' note-editor--focused' : ''}`}>
             <div className="note-editor-header">
                 <span className="note-editor-title">Editor</span>
                 <span className="note-editor-hint">
@@ -211,6 +210,7 @@ const NoteEditor = (props: Props) => {
                     updateSelectedItems={updateSelectedMidiNote}
                     itemFromXY={midiNoteFromXY}
                     ghostItemRef={ghostNoteRef}
+                    editorMode='PatternEditor'
                 />
             </div>
         </div>
