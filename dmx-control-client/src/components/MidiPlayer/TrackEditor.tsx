@@ -40,7 +40,7 @@ const MidiPlayer = (props: Props) => {
     const selectedMidiPatternsRef = useRef<MidiPattern[]>([])
     selectedMidiPatternsRef.current = midiPatterns.filter(p => isSelected(p, selectedMidiPatternsRef.current))
     
-    const { midiCurrentTickRef, lastReceivedMidiKey } = useRealTimeContext()
+    const { midiCurrentTickRef, lastReceivedMidiKey, sendCurrentTickToServer } = useRealTimeContext()
 
     const canvasRef = useRef<HTMLCanvasElement>(null)
     const mouseSelectionRef = useRef<MouseSelection | null>(null)
@@ -117,6 +117,11 @@ const MidiPlayer = (props: Props) => {
         else if(e.key == 't') splitAtCurrentTick()
         else if(e.key == 'j') joinSelection()
         else if(e.key == 'l') toggleLoop()
+        else if(e.key == 'Enter') {
+            midiCurrentTickRef.current = 0
+            ticksScrollRef.current = 0
+            sendCurrentTickToServer(0)
+        }
         else if(e.key == 'ArrowLeft') {
             const targetTick = Math.max(0, magnettedTick(midiCurrentTickRef.current, 1) - PPQ)
             midiCurrentTickRef.current = targetTick
