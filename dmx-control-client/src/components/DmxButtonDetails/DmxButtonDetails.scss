@@ -7,8 +7,10 @@
     display: flex;
     text-align: left;
     justify-content: space-between;
+    gap: 10px;
     box-sizing: border-box;
-    padding: 20px;
+    // +5px on the right for the DELETE button's `box-shadow: 5px 5px`
+    padding: 20px 25px 20px 20px;
     align-items: flex-end;
 
     &.placeholder {
