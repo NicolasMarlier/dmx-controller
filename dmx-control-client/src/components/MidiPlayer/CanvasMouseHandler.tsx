@@ -1,5 +1,5 @@
 import { useEffect, useRef, type RefObject } from "react";
-import { xToTicks } from "./utils";
+import { PPQ, xToTicks } from "./utils";
 import { useDmxMidiContext } from "../../contexts/DmxMidiContext";
 import { useRealTimeContext } from "../../contexts/RealTimeContext";
 
@@ -181,8 +181,13 @@ const CanvasMouseHandler = <T,>(props: Props<T>) => {
             ticksScrollRef.current = Math.max(0, ticksScrollRef.current + scrollAmount / pixelsPerBeatRef.current)
         }
         else if(e.deltaY != 0) {
+            const cursorX = e.clientX - canvasLeft()
             const zoomRatio = 1 + (e.deltaY) * 0.01
-            pixelsPerBeatRef.current =  Math.min(Math.max(2, pixelsPerBeatRef.current*zoomRatio), 200)
+            const oldPixelsPerBeat = pixelsPerBeatRef.current
+            const newPixelsPerBeat = Math.min(Math.max(2, oldPixelsPerBeat * zoomRatio), 200)
+            const tickAtCursor = ticksScrollRef.current + (cursorX - p.current.x0) * PPQ / oldPixelsPerBeat
+            pixelsPerBeatRef.current = newPixelsPerBeat
+            ticksScrollRef.current = Math.max(0, tickAtCursor - (cursorX - p.current.x0) * PPQ / newPixelsPerBeat)
         }
     }
 
