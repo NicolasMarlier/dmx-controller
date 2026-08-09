@@ -4,12 +4,13 @@
     width: 100%;
     height: 80px;
 
-    display: flex;
+    display: grid;
+    grid-template-columns: repeat(auto-fit, 60px);
+    
     text-align: left;
     justify-content: space-between;
     gap: 10px;
     box-sizing: border-box;
-    // +5px on the right for the DELETE button's `box-shadow: 5px 5px`
     padding: 20px 25px 20px 20px;
     align-items: flex-end;
 
@@ -25,20 +26,30 @@
     }
     
 
-    //border: 2px solid #444;
-    
-
     label {
         text-transform: uppercase;
         font-size: 10px;
+        line-height: 12px;
         text-align: left;
         font-weight: 600;
         padding: 0;
         display: block;
+        white-space: nowrap;
+    }
+
+    // One height for every control, so their top edges align and not just the
+    // bottoms that `align-items: flex-end` already handles.
+    select,
+    input,
+    label.color,
+    .bound-signal,
+    .delete-btn {
+        height: 22px;
+        box-sizing: border-box;
     }
 
     select {
-        width: 60px;
+        width: 100%;
     }
 
 
@@ -46,15 +57,16 @@
         visibility: hidden;
     }
     label.color {
-        width: 60px;
         height: 19px;
+        display: block;
+        width: 100%;
         border: 1px solid #858585;
         border-radius: 2px;
-        margin: 2px 0 0 0;
+        margin: 0;
     }
 
     input {
-        width: 60px;
+        width: 100%;
     }
 
     .signal-container {
@@ -90,12 +102,64 @@
         }
     }
 
+    // NB: the `.attaching-signal` rule inside `.signal-container` above is dead
+    // (nothing renders `.signal-container`); this is the one that applies.
+    // Keeps the "Attach C1" target inside its 60px column instead of widening it.
+    .attaching-signal {
+        width: 100%;
+
+        .btn {
+            display: block;
+            box-sizing: border-box;
+            width: 100%;
+            padding: 0 2px;
+            font-size: 10px;
+            font-weight: 600;
+            line-height: 19px;
+            text-align: center;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+        }
+    }
+
+    .bound-signal {
+        display: flex;
+        align-items: center;
+        gap: 4px;
+        width: 100%;
+
+        input {
+            flex: 1 1 auto;
+            width: auto;
+            min-width: 0;
+        }
+
+        .unbind-btn {
+            flex: 0 0 14px;
+            font-size: 14px;
+            line-height: 14px;
+            width: 14px;
+            height: 14px;
+            text-align: center;
+            border-radius: 2px;
+            color: #858585;
+            cursor: pointer;
+            user-select: none;
+
+            &:hover {
+                color: #ff6b6b;
+            }
+        }
+    }
+
+    // No `flex` override: it takes the shared 60px column width from `> div`.
     .delete-btn {
-        padding: 2px 10px;
+        padding: 2px 0;
         height: 22px;
         box-sizing: border-box;
         line-height: 14px;
-        flex: 0 0 auto;
+        text-align: center;
         font-size: 12px;
     }
     

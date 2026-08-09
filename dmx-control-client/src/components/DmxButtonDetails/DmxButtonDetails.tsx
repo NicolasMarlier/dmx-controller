@@ -50,7 +50,7 @@ const DmxButtonDetails = () => {
             </label>
         </div>
         <div>
-            <label>Duration (ms)</label>
+            <label>Duration</label>
             <input name="durationMs"
                 value={durationMs}
                 onChange={(e: any) => { setDurationMs(parseInt(e.target.value, 10)) }}

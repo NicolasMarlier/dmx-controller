@@ -19,7 +19,7 @@ interface RealTimeContextType {
     debugOutgoingWsPayloads: OutgoingWsPayload[]
 }
 
-const WS_URL = `ws://127.0.0.1:8080`
+const WS_URL = import.meta.env.VITE_WS_URL || `ws://127.0.0.1:8080`
 
 const RealTimeContext = createContext<RealTimeContextType | null>(null)
 
@@ -64,7 +64,7 @@ export const RealTimeContextProvider = ({ children }: {children: React.ReactNode
 
     useEffect(() => {
       if(!!lastReceivedMidiKey) {
-        const intervalId = setTimeout(() => setLastReceivedMidiKey(undefined), 1000)
+        const intervalId = setTimeout(() => setLastReceivedMidiKey(undefined), 3000)
         return () => clearInterval(intervalId)
       }
     }, [lastReceivedMidiKey])

@@ -9,7 +9,7 @@ type DmxButton = {
     duration_ms: number
     red_channels: number[]
     nature: DmxEffectNature
-    triggering_midi_key: MidiKey | undefined
+    triggering_midi_key: MidiKey | null
 }
 
 type DmxButtonCreationParams = {
@@ -26,7 +26,7 @@ type DmxButtonUpdateParams = {
     duration_ms?: number
     red_channels?: number[]
     nature?: DmxEffectNature
-    triggering_midi_key?: MidiKey
+    triggering_midi_key?: MidiKey | null
 }
 
 type DmxHexSignal = string

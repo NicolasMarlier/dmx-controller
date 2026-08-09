@@ -69,7 +69,10 @@ export class DmxButtonController {
         duration_ms: req.body.duration_ms ?? button.duration_ms,
         red_channels: req.body.red_channels ?? button.red_channels,
         nature: req.body.nature ?? button.nature,
-        triggering_midi_key: req.body.triggering_midi_key ?? button.triggering_midi_key,
+        // Explicit-presence check, not `??`: sending `null` must actually unbind the key.
+        triggering_midi_key: 'triggering_midi_key' in req.body
+          ? req.body.triggering_midi_key
+          : button.triggering_midi_key,
       });
 
       DmxLoop.getInstance().resyncDmxButtons()
