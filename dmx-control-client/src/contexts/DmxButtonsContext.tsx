@@ -128,7 +128,7 @@ export const DmxButtonsContextProvider = ({ children }: {children: React.ReactNo
 
     },
     {
-      channel: 121, rgbDotsCount: 1,
+      channel: 145, rgbDotsCount: 1,
       style: {
         transform: 'scale(0.5)',
         bottom: '-10%',
