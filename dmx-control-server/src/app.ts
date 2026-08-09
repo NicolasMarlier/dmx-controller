@@ -19,7 +19,8 @@ var cors = require('cors')
 const app = express()
 app.use(express.json());
 app.use(cors())
-const HTTP_PORT = 3000
+const HTTP_PORT = Number(process.env.HTTP_PORT) || 3000
+const WS_PORT = Number(process.env.WS_PORT) || 8080
 
 app.get('/programs', ProgramsController.list)
 app.post('/programs', ProgramsController.create)
@@ -85,7 +86,7 @@ const enttec = new EnttecOpenDMXUSB()
 
 // WS Server
 const wss = new WebSocketServer({
-  port: 8080
+  port: WS_PORT
 });
 const ws_clients = new Set<WebSocket>();
 
@@ -134,7 +135,7 @@ wss.on('connection', (ws: WebSocket) => {
   });
 });
 
-console.log("WS Server ready on port 8080")
+console.log(`WS Server ready on port ${WS_PORT}`)
 
 
 //DmxLoop

@@ -1,6 +1,6 @@
 import axios from "axios"
 
-const BASE_PATH = 'http://localhost:3000'
+const BASE_PATH = import.meta.env.VITE_API_URL || 'http://localhost:3000'
 
 export const listPrograms: () => Promise<Program[]> = () => axios
   .get(`${BASE_PATH}/programs`)

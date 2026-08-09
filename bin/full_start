@@ -1,0 +1,494 @@
+#!/usr/bin/env bash
+#
+# Starts the whole DMX Control stack:
+#   1. Docker Desktop (if not already running)
+#   2. A PostgreSQL container (data kept in a named docker volume)
+#   3. Pending sequelize migrations
+#   4. The API server and the client, both built for production
+#   5. A chromeless browser window pointed at the client
+#
+# It runs on its own ports (5273/3100/8180) rather than the dev ones
+# (5173/3000/8080), so `bin/start` can stay up alongside it. Note that the two
+# then use different databases: this one the docker postgres on 5433, bin/start
+# whatever is on 5432 (Postgres.app).
+#
+# Closing the browser window (or Ctrl-C) shuts everything back down.
+# The postgres container is left running so the next start is instant;
+# set DMX_STOP_DB=1 to stop it on exit too.
+#
+# Production builds are used on purpose: the vite dev server transforms modules
+# on demand, which makes the app crawl for the first half-minute of use. Both
+# builds take about a second, so they run on every launch and the app always
+# reflects the current source. Set DMX_DEV=1 for the dev servers and HMR.
+
+set -uo pipefail
+
+ROOT=$(cd "$(dirname "$0")/.." && pwd)
+
+CONTAINER="${DMX_DB_CONTAINER:-dmx-control-postgres}"
+VOLUME="${DMX_DB_VOLUME:-dmx-control-pgdata}"
+IMAGE="${DMX_DB_IMAGE:-postgres:18}"
+DB_PORT="${DMX_DB_PORT:-5433}"
+DB_NAME="${DMX_DB_NAME:-dmx_control}"
+# Dedicated ports, deliberately not the dev ones (5173/3000/8080), so the app
+# and a bin/start dev session can run side by side.
+CLIENT_PORT="${DMX_CLIENT_PORT:-5273}"
+HTTP_PORT="${DMX_HTTP_PORT:-3100}"
+WS_PORT="${DMX_WS_PORT:-8180}"
+CLIENT_URL="http://localhost:${CLIENT_PORT}"
+# Chrome's devtools endpoint, the only permission-free way to tell whether the
+# app window is actually open -- see app_window_open().
+CDP_PORT="${DMX_CDP_PORT:-9333}"
+REQUIRED_PORTS="$CLIENT_PORT $HTTP_PORT $WS_PORT $CDP_PORT"
+
+# Read by dmx-control-server/src/app.ts, and baked into the client at build time.
+export HTTP_PORT WS_PORT
+export VITE_API_URL="http://localhost:${HTTP_PORT}"
+export VITE_WS_URL="ws://127.0.0.1:${WS_PORT}"
+
+# The server and sequelize-cli both read this.
+export DATABASE_URL="postgres://postgres@localhost:${DB_PORT}/${DB_NAME}"
+
+STATE_DIR="$HOME/Library/Application Support/dmx-control"
+PIDFILE="$STATE_DIR/full_start.pid"
+MIGRATION_STAMP="$STATE_DIR/migrations.stamp"
+mkdir -p "$STATE_DIR"
+
+log() { echo "[full_start] $*"; }
+die() { echo "[full_start] ERROR: $*" >&2; exit 1; }
+
+prefix_output() {
+  local label="$1"
+  while IFS= read -r line; do
+    echo "[$label] $line"
+  done
+}
+
+port_pids() {
+  lsof -nP -iTCP:"$1" -sTCP:LISTEN -t 2>/dev/null | sort -u | tr '\n' ' '
+}
+
+# Launched from Finder we get launchd's minimal PATH: /usr/local/bin is there
+# (so yarn and npx resolve) but the nvm directory is not, and both of them are
+# `#!/usr/bin/env node` scripts -- they fail with "env: node: No such file or
+# directory". nvm lives in ~/.zshrc, which a login shell does not read, so we
+# have to find node ourselves.
+ensure_node() {
+  command -v node >/dev/null 2>&1 && return 0
+
+  export PATH="/opt/homebrew/bin:/usr/local/bin:$PATH"
+  command -v node >/dev/null 2>&1 && return 0
+
+  local nvm_dir="${NVM_DIR:-$HOME/.nvm}"
+  if [ -s "$nvm_dir/nvm.sh" ]; then
+    set +u
+    . "$nvm_dir/nvm.sh" >/dev/null 2>&1
+    nvm use --silent default >/dev/null 2>&1 || nvm use --silent node >/dev/null 2>&1
+    set -u
+  fi
+  command -v node >/dev/null 2>&1 && return 0
+
+  # Last resort: the most recent version nvm has installed.
+  local newest
+  newest=$(ls -d "$nvm_dir"/versions/node/*/bin 2>/dev/null | sort -V | tail -1)
+  [ -n "$newest" ] && export PATH="$newest:$PATH"
+
+  command -v node >/dev/null 2>&1 \
+    || die "node not found in PATH (looked in $nvm_dir, /opt/homebrew/bin, /usr/local/bin)"
+}
+
+BROWSER_PROFILE="$HOME/Library/Application Support/dmx-control-browser"
+
+find_browser() {
+  local candidate
+  for candidate in \
+    "/Applications/Google Chrome.app/Contents/MacOS/Google Chrome" \
+    "/Applications/Brave Browser.app/Contents/MacOS/Brave Browser" \
+    "/Applications/Microsoft Edge.app/Contents/MacOS/Microsoft Edge" \
+    "/Applications/Chromium.app/Contents/MacOS/Chromium"
+  do
+    if [ -x "$candidate" ]; then echo "$candidate"; return 0; fi
+  done
+  return 1
+}
+
+# A dedicated profile keeps this a standalone window with no URL bar, and makes
+# the browser process exit when the window is closed.
+open_app_window() {
+  local browser i
+  browser=$(find_browser) || {
+    log "No Chromium-based browser found, falling back to the default browser"
+    open "$CLIENT_URL"
+    return 0
+  }
+  # A browser still holding this profile makes the new process hand its request
+  # over to the old one, which answers with a plain empty tab instead of our app
+  # window. Let the previous one finish quitting first.
+  i=0
+  while [ $i -lt 10 ]; do
+    pgrep -f -- "--user-data-dir=$BROWSER_PROFILE" >/dev/null 2>&1 || break
+    sleep 1
+    i=$((i + 1))
+  done
+  log "Opening $CLIENT_URL in an app window"
+  "$browser" \
+    --app="$CLIENT_URL" \
+    --user-data-dir="$BROWSER_PROFILE" \
+    --remote-debugging-port="$CDP_PORT" \
+    --no-first-run \
+    --no-default-browser-check \
+    --window-size=1600,1000 \
+    >/dev/null 2>&1 &
+}
+
+# Closing the window does NOT quit Chrome on macOS: the process lives on with
+# no windows, so no process check can answer this question. Its devtools
+# endpoint can -- a closed window leaves zero "page" targets. That endpoint also
+# survives the handoff case, where the pid we spawned exits immediately because
+# another browser already held the profile.
+app_window_open() {
+  local targets
+  targets=$(curl -s --max-time 2 "http://127.0.0.1:${CDP_PORT}/json/list" 2>/dev/null)
+  if [ -n "$targets" ]; then
+    printf '%s' "$targets" | grep -qE '"type"[[:space:]]*:[[:space:]]*"page"'
+    return $?
+  fi
+  # No endpoint: either the browser is gone, or it refused the debug port. Fall
+  # back to the process, so a launch can never take the window down with it.
+  pgrep -f -- "--user-data-dir=$BROWSER_PROFILE" >/dev/null 2>&1
+}
+
+# Bring the window of an already-running instance to the front.
+focus_app_window() {
+  local pid
+  # Only the main browser process carries --app=; its renderer helpers do not.
+  pid=$(pgrep -f -- "--app=$CLIENT_URL" 2>/dev/null | head -1)
+  if [ -n "$pid" ]; then
+    /usr/bin/osascript -e "tell application \"System Events\" to set frontmost of (first process whose unix id is $pid) to true" >/dev/null 2>&1 \
+      && return 0
+  fi
+  return 1
+}
+
+
+# --- 0. Already running? -----------------------------------------------------
+# Double-clicking the app while it is already up should show its window, not
+# fail on the port check below. The pid file is what makes this reliable: ports
+# alone still answer during the couple of seconds an instance takes to die, and
+# acting on that opens a window onto a stack that is already gone.
+
+# An instance that is on its way out still has a live pid, answering ports and
+# even a browser process for a second or two. Inferring "it is up" from any of
+# those is what opened a window onto a dying stack. So watch the pid file
+# instead: a shutting-down instance removes it as its very first act, well
+# inside this observation window, while a healthy one keeps it.
+instance_running() {
+  local pid i
+  [ -f "$PIDFILE" ] || return 1
+  pid=$(cat "$PIDFILE" 2>/dev/null)
+  [ -n "$pid" ] || return 1
+  kill -0 "$pid" 2>/dev/null || return 1
+  curl -sf -o /dev/null --max-time 2 "$CLIENT_URL" || return 1
+  curl -sf -o /dev/null --max-time 2 "${VITE_API_URL}/programs" || return 1
+
+  i=0
+  while [ $i -lt 12 ]; do
+    [ -f "$PIDFILE" ] || return 1
+    kill -0 "$pid" 2>/dev/null || return 1
+    sleep 0.125
+    i=$((i + 1))
+  done
+
+  app_window_open || return 1
+  return 0
+}
+
+# Nothing must be started while a previous instance is still letting go.
+wait_for_shutdown() {
+  local pid i
+  [ -f "$PIDFILE" ] || return 0
+  pid=$(cat "$PIDFILE" 2>/dev/null)
+  [ -n "$pid" ] || return 0
+  kill -0 "$pid" 2>/dev/null || return 0
+  log "A previous instance is shutting down, waiting for it..."
+  i=0
+  while [ $i -lt 20 ]; do
+    kill -0 "$pid" 2>/dev/null || return 0
+    sleep 1
+    i=$((i + 1))
+  done
+  return 0
+}
+
+if instance_running; then
+  if focus_app_window; then
+    log "Already running, brought the existing window to the front."
+  else
+    log "Already running, opening a window on the existing instance."
+    open_app_window
+    sleep 2
+  fi
+  exit 0
+fi
+
+wait_for_shutdown
+
+ensure_node
+command -v yarn >/dev/null 2>&1 || die "yarn not found in PATH"
+log "Using node $(node -v) ($(command -v node))"
+
+
+# --- 0. Ports ----------------------------------------------------------------
+# Fail before touching anything: a second stack would silently land on other
+# ports and the browser would end up talking to the first one.
+
+ports_busy() {
+  local port pids
+  BUSY=""
+  for port in $REQUIRED_PORTS; do
+    pids=$(port_pids "$port")
+    [ -n "$pids" ] && BUSY="$BUSY $port(pids: $pids)"
+  done
+  [ -n "$BUSY" ]
+}
+
+# Closing the window and relaunching straight away is normal use, and the old
+# instance needs a moment to let go of its ports. Wait it out rather than
+# failing in the user's face.
+if ports_busy; then
+  log "Ports still busy, waiting for the previous instance to exit..."
+  i=0
+  while [ $i -lt 15 ]; do
+    ports_busy || break
+    sleep 1
+    i=$((i + 1))
+  done
+fi
+
+if ports_busy; then
+  if [ "${DMX_KILL_EXISTING:-0}" = "1" ]; then
+    log "Ports already in use:$BUSY -- killing the existing processes"
+    for port in $REQUIRED_PORTS; do
+      pids=$(port_pids "$port")
+      [ -n "$pids" ] && kill -TERM $pids 2>/dev/null
+    done
+    sleep 2
+    for port in $REQUIRED_PORTS; do
+      pids=$(port_pids "$port")
+      [ -n "$pids" ] && kill -KILL $pids 2>/dev/null
+    done
+  else
+    die "ports already in use:$BUSY
+These are the app's own ports, so another bin/full_start is probably running.
+Quit it first, or re-run with DMX_KILL_EXISTING=1 to take it down automatically."
+  fi
+fi
+
+
+# --- 1. Docker ---------------------------------------------------------------
+
+command -v docker >/dev/null 2>&1 || die "docker not found in PATH"
+
+if ! docker info >/dev/null 2>&1; then
+  log "Docker is not running, starting Docker Desktop..."
+  open -ga Docker || die "could not launch Docker Desktop"
+  i=0
+  while [ $i -lt 90 ]; do
+    docker info >/dev/null 2>&1 && break
+    sleep 2
+    i=$((i + 1))
+  done
+  docker info >/dev/null 2>&1 || die "Docker did not become ready in time"
+fi
+log "Docker is ready"
+
+
+# --- 2. Postgres container ---------------------------------------------------
+
+STATUS=$(docker inspect -f '{{.State.Status}}' "$CONTAINER" 2>/dev/null) || STATUS="missing"
+FRESH_DB=0
+
+if [ "$STATUS" = "running" ]; then
+  log "Postgres container '$CONTAINER' already running"
+elif [ "$STATUS" = "missing" ]; then
+  # No volume yet means we are creating the database from scratch.
+  docker volume inspect "$VOLUME" >/dev/null 2>&1 || FRESH_DB=1
+  log "Creating postgres container '$CONTAINER' ($IMAGE) on port $DB_PORT"
+  docker run -d \
+    --name "$CONTAINER" \
+    -e POSTGRES_HOST_AUTH_METHOD=trust \
+    -e POSTGRES_DB="$DB_NAME" \
+    -p "127.0.0.1:${DB_PORT}:5432" \
+    -v "${VOLUME}:/var/lib/postgresql" \
+    "$IMAGE" >/dev/null || die "could not start the postgres container"
+else
+  log "Restarting postgres container '$CONTAINER' (was $STATUS)"
+  docker start "$CONTAINER" >/dev/null || die "could not restart the postgres container"
+fi
+
+log "Waiting for postgres..."
+i=0
+while [ $i -lt 60 ]; do
+  docker exec "$CONTAINER" pg_isready -U postgres -d "$DB_NAME" >/dev/null 2>&1 && break
+  sleep 1
+  i=$((i + 1))
+done
+docker exec "$CONTAINER" pg_isready -U postgres -d "$DB_NAME" >/dev/null 2>&1 \
+  || die "postgres never became ready (docker logs $CONTAINER)"
+log "Postgres ready on $DATABASE_URL"
+
+
+# --- 3. Seed + migrations ----------------------------------------------------
+
+if [ "$FRESH_DB" = "1" ]; then
+  LATEST_DUMP=$(ls -1 "$ROOT/dmx-control-server/dumps"/*.sql 2>/dev/null | tail -1)
+  if [ -n "$LATEST_DUMP" ]; then
+    log "Fresh database, loading $(basename "$LATEST_DUMP")"
+    docker exec -i "$CONTAINER" psql -q -U postgres -d "$DB_NAME" < "$LATEST_DUMP" >/dev/null \
+      || log "WARNING: loading the dump reported errors, continuing"
+  else
+    log "Fresh database, no dump to load"
+  fi
+fi
+
+if [ ! -d "$ROOT/dmx-control-server/node_modules" ]; then
+  log "Installing server dependencies..."
+  (cd "$ROOT/dmx-control-server" && yarn install) || die "yarn install failed (server)"
+fi
+if [ ! -d "$ROOT/dmx-control-client/node_modules" ]; then
+  log "Installing client dependencies..."
+  (cd "$ROOT/dmx-control-client" && yarn install) || die "yarn install failed (client)"
+fi
+
+# sequelize-cli costs a few seconds, so only pay it when a migration was added.
+NEWEST_MIGRATION=$(ls -t "$ROOT/dmx-control-server/migrations"/*.js 2>/dev/null | head -1)
+if [ "$FRESH_DB" = "1" ] || [ ! -f "$MIGRATION_STAMP" ] || [ "$NEWEST_MIGRATION" -nt "$MIGRATION_STAMP" ]; then
+  log "Running migrations..."
+  (cd "$ROOT/dmx-control-server" && npx sequelize-cli db:migrate --url "$DATABASE_URL" 2>&1 | prefix_output "migrate") \
+    || die "migrations failed"
+  touch "$MIGRATION_STAMP"
+else
+  log "No new migrations"
+fi
+
+
+# --- 4. Server + client ------------------------------------------------------
+
+if [ "${DMX_DEV:-0}" != "1" ]; then
+  log "Building..."
+  # tsc: the same typecheck ts-node-dev applies, so this fails on exactly the
+  # code that would fail to run anyway.
+  (cd "$ROOT/dmx-control-server" && yarn build 2>&1 | prefix_output "build") \
+    || die "the server does not compile (see the errors above)"
+  # vite build, not 'yarn build': the client's 'tsc -b' step is stricter than
+  # anything the dev server enforces, and a launcher should not gate on it.
+  (cd "$ROOT/dmx-control-client" && npx vite build 2>&1 | prefix_output "build") \
+    || die "the client failed to build (see the errors above)"
+fi
+
+# Job control puts each server in its own process group, so we can take down
+# the wrapper *and* the node process it spawns in one go.
+set -m
+
+if [ "${DMX_DEV:-0}" = "1" ]; then
+  (cd "$ROOT/dmx-control-server" && yarn dev 2>&1 | prefix_output "server") &
+  SERVER_PID=$!
+  # --strictPort: never silently drift to 5174, the browser window would then be
+  # pointed at a different (stale) instance.
+  (cd "$ROOT/dmx-control-client" && yarn dev --port "$CLIENT_PORT" --strictPort 2>&1 | prefix_output "client") &
+  CLIENT_PID=$!
+else
+  (cd "$ROOT/dmx-control-server" && node dist/app.js 2>&1 | prefix_output "server") &
+  SERVER_PID=$!
+  (cd "$ROOT/dmx-control-client" && npx vite preview --port "$CLIENT_PORT" --strictPort 2>&1 | prefix_output "client") &
+  CLIENT_PID=$!
+fi
+
+set +m
+
+OWN_PGID=$(ps -o pgid= -p $$ 2>/dev/null | tr -d ' ')
+SERVER_PGID=$(ps -o pgid= -p "$SERVER_PID" 2>/dev/null | tr -d ' ')
+CLIENT_PGID=$(ps -o pgid= -p "$CLIENT_PID" 2>/dev/null | tr -d ' ')
+
+# yarn spawns node underneath, so signal the whole process group of the job.
+kill_group() {
+  local pid="$1"
+  local sig="$2"
+  local pgid
+  pgid=$(ps -o pgid= -p "$pid" 2>/dev/null | tr -d ' ')
+  if [ -n "$pgid" ] && [ "$pgid" != "$OWN_PGID" ]; then
+    kill "-$sig" "-$pgid" 2>/dev/null
+  else
+    kill "-$sig" "$pid" 2>/dev/null
+  fi
+}
+
+cleanup() {
+  trap - EXIT INT TERM
+  log "Shutting down..."
+  # First, so a relaunch during teardown does not mistake us for a live instance.
+  rm -f "$PIDFILE"
+  kill_group "$SERVER_PID" TERM
+  kill_group "$CLIENT_PID" TERM
+  # The whole browser, not just the window: it outlives its last window, and a
+  # leftover one makes the next launch hand off to a browser we no longer track.
+  # Safe to take down wholesale -- this profile is used by nothing else.
+  pkill -f -- "--user-data-dir=$BROWSER_PROFILE" 2>/dev/null
+  # Anything still holding a port after the grace period gets SIGKILL.
+  sleep 2
+  kill_group "$SERVER_PID" KILL
+  kill_group "$CLIENT_PID" KILL
+  # Sweep up stragglers still holding a port, but only our own: a relaunch may
+  # already have bound these ports, and killing by port alone would shoot it
+  # (or the user's own dev servers) in the back.
+  local port p pg
+  for port in $REQUIRED_PORTS; do
+    for p in $(port_pids "$port"); do
+      pg=$(ps -o pgid= -p "$p" 2>/dev/null | tr -d ' ')
+      if [ -n "$pg" ] && { [ "$pg" = "$SERVER_PGID" ] || [ "$pg" = "$CLIENT_PGID" ]; }; then
+        kill -KILL "$p" 2>/dev/null
+      fi
+    done
+  done
+  if [ "${DMX_STOP_DB:-0}" = "1" ]; then
+    log "Stopping postgres container"
+    docker stop "$CONTAINER" >/dev/null 2>&1
+  fi
+  exit 0
+}
+trap cleanup EXIT INT TERM
+
+echo $$ > "$PIDFILE"
+
+log "Waiting for the client on $CLIENT_URL ..."
+i=0
+while [ $i -lt 120 ]; do
+  curl -sf -o /dev/null "$CLIENT_URL" && break
+  kill -0 "$CLIENT_PID" 2>/dev/null || die "the client process died, see the log above"
+  sleep 1
+  i=$((i + 1))
+done
+
+
+# --- 5. Chromeless browser window --------------------------------------------
+
+open_app_window
+
+# Give the window a moment to appear before watching for its disappearance.
+i=0
+while [ $i -lt 20 ]; do
+  app_window_open && break
+  sleep 1
+  i=$((i + 1))
+done
+
+log "Running. Close the window or press Ctrl-C to stop."
+
+# Exit as soon as the browser window is closed or one of the servers dies. Poll
+# briskly: this delay is how long a relaunch has to wait to get a clean answer.
+while true; do
+  app_window_open || break
+  kill -0 "$SERVER_PID" 2>/dev/null || break
+  kill -0 "$CLIENT_PID" 2>/dev/null || break
+  sleep 0.5
+done

@@ -1,0 +1,5 @@
+.DS_Store
+
+# bin/install installs into ~/Applications, but keep this in case someone
+# points it at the repo (the bundle holds an absolute path to this checkout).
+DMX Control.app/
