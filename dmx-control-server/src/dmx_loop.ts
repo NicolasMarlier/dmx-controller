@@ -1,5 +1,7 @@
 import EventEmitter from "events"
 import { emptyDmxHexString } from "./utils"
+import DmxEffect from "./dmx/effects/DmxEffect"
+import { getDmxSignalAt } from "./dmx/effects/utils"
 import { DmxButton } from "./sequelize/models/dmx_button"
 import DmxSet from "./dmx/effects/DmxSet"
 import DmxBoom from "./dmx/effects/DmxBoom"
@@ -10,6 +12,14 @@ import { DmxMidiHandler } from "./dmx_midi_handler"
 import DmxInverseRun from "./dmx/effects/DmxInverseRun"
 
 const LOOP_INTERVAL_MS = 20
+
+const DMX_EFFECTS = {
+    'Set': DmxSet,
+    'Boom': DmxBoom,
+    'Run': DmxRun,
+    'InverseRun': DmxInverseRun,
+    'Toggle': DmxToggle,
+}
 
 export const DMX_LOOP_EVENTS = {
     TICK: 'tick',
@@ -23,7 +33,7 @@ export class DmxLoop extends EventEmitter {
     interval: NodeJS.Timeout | undefined
     onLoop: ((now: number) => void) | undefined
     dmxButtons: DmxButton[]
-    dmx_buttons_triggered_at: { [dmx_button_id: string]: number}
+    dmx_buttons_triggered: { [dmx_button_id: string]: DmxButtonTrigger}
     current_program_id: number | undefined
     dmx_hex_signal = emptyDmxHexString()
     dmxMidiHandler: DmxMidiHandler
@@ -32,7 +42,7 @@ export class DmxLoop extends EventEmitter {
     private constructor(current_program_id: number | undefined, dmxButtons: DmxButton[]) {
         super()
         this.dmxButtons = dmxButtons
-        this.dmx_buttons_triggered_at = {}
+        this.dmx_buttons_triggered = {}
         this.current_program_id = current_program_id
         this.dmxMidiHandler = new DmxMidiHandler({
             onMidiKey: (midiKey) => {
@@ -60,9 +70,34 @@ export class DmxLoop extends EventEmitter {
         this.dmxButtons = await DmxButton.findAll({where: {program_id: this.current_program_id},})
     }    
 
+    areDmxButtonChannelsBlack = (dmxButton: DmxButton) => dmxButton.red_channels.every((redChannel) => (
+        getDmxSignalAt(this.dmx_hex_signal, redChannel + 0) == 0 &&
+        getDmxSignalAt(this.dmx_hex_signal, redChannel + 1) == 0 &&
+        getDmxSignalAt(this.dmx_hex_signal, redChannel + 2) == 0
+    ))
+
+    nextDmxButtonTrigger = (dmxButton: DmxButton | undefined): DmxButtonTrigger => {
+        // Only toggles ever go down, all the other effects always run forward
+        if(dmxButton?.nature != 'Toggle') return { at: Date.now(), state: 'up' }
+
+        const previousTrigger = this.dmx_buttons_triggered[dmxButton.id]
+        if(!previousTrigger) return {
+            at: Date.now(),
+            state: this.areDmxButtonChannelsBlack(dmxButton) ? 'up' : 'down'
+        }
+
+        // Triggered again while still fading: reverse it, back-dating the trigger so it resumes
+        // from the current brightness instead of jumping back to the start
+        const previousCompleteness = DmxEffect.computeCompleteness(dmxButton.duration_ms, previousTrigger.at)
+        return {
+            at: Date.now() - (1 - previousCompleteness) * dmxButton.duration_ms,
+            state: previousTrigger.state == 'up' ? 'down' : 'up'
+        }
+    }
+
     triggerDmxButton = (dmxButtonId: string, options?: {mock_midi_signal?: boolean}) => {
-        this.dmx_buttons_triggered_at[dmxButtonId] = Date.now()
         const dmxButton = this.dmxButtons.find((dmxButton) => dmxButton.id == dmxButtonId)
+        this.dmx_buttons_triggered[dmxButtonId] = this.nextDmxButtonTrigger(dmxButton)
         if(dmxButton?.triggering_midi_key && options?.mock_midi_signal) {
             this.emit(DMX_LOOP_EVENTS.MOCK_MIDI_INPUT, dmxButton.triggering_midi_key)
         }
@@ -77,7 +112,7 @@ export class DmxLoop extends EventEmitter {
     }
 
     detriggerDmxButton = (dmxButtonId: string) => {
-        delete this.dmx_buttons_triggered_at[dmxButtonId]
+        delete this.dmx_buttons_triggered[dmxButtonId]
     }
 
     switchProgram = async(program_id: number) => {
@@ -95,23 +130,18 @@ export class DmxLoop extends EventEmitter {
     }
 
     applyDmxButtonToDmxSignal = (dmxButton: DmxButton, dmxHexSignal: string) => {
-        const triggeredAt = this.dmx_buttons_triggered_at[dmxButton.id]
-        if(!triggeredAt) return dmxHexSignal
-        
-        const dmxEffect = {
-            'Set': DmxSet,
-            'Boom': DmxBoom,
-            'Run': DmxRun,
-            'InverseRun': DmxInverseRun,
-            'Toggle': DmxToggle,
-        }[dmxButton.nature]
+        const trigger = this.dmx_buttons_triggered[dmxButton.id]
+        if(!trigger) return dmxHexSignal
 
-        const completeness = dmxEffect.computeCompleteness(dmxButton.duration_ms, triggeredAt)
+        const dmxEffect = DMX_EFFECTS[dmxButton.nature]
+
+        const completeness = dmxEffect.computeCompleteness(dmxButton.duration_ms, trigger.at)
 
         const newDmxHexSignal = dmxEffect.transformDmxHexSignal(
             dmxHexSignal,
             completeness,
-            dmxButton
+            dmxButton,
+            trigger
         )
         if(completeness >= 1) {
             this.detriggerDmxButton(dmxButton.id)

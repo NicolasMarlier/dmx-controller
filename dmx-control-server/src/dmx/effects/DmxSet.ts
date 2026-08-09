@@ -7,7 +7,8 @@ class DmxSet extends DmxEffect {
     static transformDmxHexSignal = (
         dmxHexSignal: DmxHexSignal,
         _completeness: number,
-        dmxButton: DmxButton
+        dmxButton: DmxButton,
+        _trigger: DmxButtonTrigger
     ) => {
         return DmxEffect.setToColor(
             dmxButton.red_channels,

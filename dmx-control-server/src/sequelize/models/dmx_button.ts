@@ -14,7 +14,7 @@ export class DmxButton extends Model<InferAttributes<DmxButton>, InferCreationAt
   declare color: string
   declare duration_ms: number
   declare red_channels: number[]
-  declare nature: 'Set' | 'Boom' | 'Run'
+  declare nature: DmxEffectNature
   declare triggering_midi_key: MidiKey | null
 
   static initModel(sequelize: Sequelize): typeof DmxButton {

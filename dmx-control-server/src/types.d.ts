@@ -2,7 +2,13 @@ type USBDeviceState = 'Not connected' | 'Connected' | 'Initializing' | 'Identifi
 
 type DmxHexSignal = string
 
-type DmxEffectNature = 'Boom' | 'Set' | 'Run' | 'Toggle'
+type DmxEffectNature = 'Boom' | 'Set' | 'Run' | 'InverseRun' | 'Toggle'
+
+type DmxTriggerState = 'up' | 'down'
+type DmxButtonTrigger = {
+    at: number
+    state: DmxTriggerState
+}
 
 type MidiKey = number
 type MidiNote = {

@@ -6,7 +6,8 @@ class DmxRun extends DmxEffect {
     static transformDmxHexSignal = (
         dmxHexSignal: DmxHexSignal,
         completeness: number,
-        dmxButton: DmxButton
+        dmxButton: DmxButton,
+        _trigger: DmxButtonTrigger
     ) => {
         let newSignal = dmxHexSignal
         const spread = 2 * 3
