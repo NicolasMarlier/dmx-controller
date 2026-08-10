@@ -2,38 +2,21 @@ import { useEffect, useRef, useState } from "react"
 import SmallButton from "../DesignSystem/SmallButton/SmallButton"
 import { BackToStartIcon, PauseIcon, PlayIcon } from "../DesignSystem/Icons"
 import { useDmxButtonsContext } from "../../contexts/DmxButtonsContext"
-import { getProgramAudio } from "../../ApiClient"
 import { tickToTime, timeToTick } from "./utils"
 import { useRealTimeContext } from "../../contexts/RealTimeContext"
 
 const AudioPlayer = () => {
-    const { program } = useDmxButtonsContext()
+    const { program, audioUrl } = useDmxButtonsContext()
     const { midiCurrentTickRef, sendCurrentTickToServer } = useRealTimeContext()
     const [isPlaying, setIsPlaying] = useState(false)
-
-    const [audioUrl, setAudioUrl] = useState<string | undefined>(undefined)
-
-    const fetchAudioUrl = () => {
-        if(program?.id) {
-            getProgramAudio(program.id)
-                .then((audioUrl) => { setAudioUrl(audioUrl || undefined) })
-        }
-        else {
-            setAudioUrl(undefined)
-        }
-    }
-
-
-    useEffect(fetchAudioUrl, [program?.id])
 
     const audioRef = useRef<HTMLAudioElement>(null)
 
     useEffect(() => {
-        if (!audioUrl && audioRef.current) {
-            audioRef.current.pause()
-            audioRef.current.src = ''
-            setIsPlaying(false)
-        }
+        if (!audioRef.current) return
+        audioRef.current.pause()
+        setIsPlaying(false)
+        if (!audioUrl) audioRef.current.src = ''
     }, [audioUrl])
 
     const pause = () => {

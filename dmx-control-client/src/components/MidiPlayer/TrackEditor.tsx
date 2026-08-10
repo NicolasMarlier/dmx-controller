@@ -1,7 +1,6 @@
 import './TrackEditor.scss'
 
 import { useEffect, useRef, useState } from 'react';
-import { uploadProgramAudio, getProgramAudio } from '../../ApiClient.js';
 import { useRealTimeContext } from '../../contexts/RealTimeContext.js';
 import { computeWave } from './utils_audio.js';
 import { redrawFullCanvas } from './TrackEditorCanvasDrawer.js';
@@ -10,6 +9,7 @@ import { addNoteAtTick, insertPatternsAtTick, magnettedTick, nextFreeTick, toggl
 import { doRectanglesIntersect, midiPatternToRectangle, PPQ, xToTicks } from './utils.js';
 import CanvasMouseHandler from './CanvasMouseHandler.js';
 import { useDmxMidiContext } from '../../contexts/DmxMidiContext.js';
+import { useDmxButtonsContext } from '../../contexts/DmxButtonsContext.js';
 import { isSelected, midiPatternArrayEqual, midiPatternsInclude, splitPatternsAtTick, sum } from './utils_midi_patterns.js';
 
 const BEATS_OFFSET = 2
@@ -30,6 +30,8 @@ const MidiPlayer = (props: Props) => {
         isRecording,
         setSelectedMidiPatterns,
     } = useDmxMidiContext()
+
+    const { audioUrl, uploadProgramAudioAndSync } = useDmxButtonsContext()
 
     const allMidiKeysRef = useRef(allMidiKeys)
     allMidiKeysRef.current = allMidiKeys
@@ -143,8 +145,7 @@ const MidiPlayer = (props: Props) => {
     }
 
     const onDropAudioFile = (file: File) => {
-        uploadProgramAudio(program.id, file)
-        //TODO: real-time update fetchAudio
+        uploadProgramAudioAndSync(file)
     }
 
     const persistRecordingPattern = () => {
@@ -204,19 +205,14 @@ const MidiPlayer = (props: Props) => {
     }, [])
 
 
-    const [audioUrl, setAudioUrl] = useState<string | undefined>(undefined)
-    const fetchAudioUrl = () => {
-        getProgramAudio(program.id).then((audioUrl) => setAudioUrl(audioUrl || undefined))
-    }
-    useEffect(fetchAudioUrl, [program])
     useEffect(() => {
         if(!audioUrl) {
             setAudioWaveData(new Uint8Array())
+            return
         }
-        else {
-            computeWave(audioUrl, program.bpm, PPQ).then(setAudioWaveData)
-        }
-        
+        let cancelled = false
+        computeWave(audioUrl, program.bpm, PPQ).then(waveData => { if(!cancelled) setAudioWaveData(waveData) })
+        return () => { cancelled = true }
     }, [audioUrl])
 
     const redrawMidiCanvas = () => {

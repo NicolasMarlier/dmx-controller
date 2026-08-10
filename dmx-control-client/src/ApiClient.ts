@@ -53,7 +53,7 @@ export const uploadProgramAudio: (program_id: number, file: File) => Promise<voi
 
 export const getProgramAudio: (program_id: number) => Promise<string | null> = async (program_id) => {
   try {
-    const response = await axios.get(`${BASE_PATH}/programs/${program_id}/audio`, { responseType: 'blob' })
+    const response = await axios.get(`${BASE_PATH}/programs/${program_id}/audio?t=${Date.now()}`, { responseType: 'blob' })
     return URL.createObjectURL(response.data)
   } catch {
     return null

@@ -1,6 +1,6 @@
 import { createContext, useContext, useEffect, useState } from "react";
 
-import { createDmxButton, deleteDmxButton, listDmxButtons, listPrograms, selectProgram, updateDmxButton } from "../ApiClient";
+import { createDmxButton, deleteDmxButton, getProgramAudio, listDmxButtons, listPrograms, selectProgram, updateDmxButton, uploadProgramAudio } from "../ApiClient";
 
 interface DmxButtonsContextType {
   dmxButtons: DmxButton[]
@@ -15,6 +15,9 @@ interface DmxButtonsContextType {
   setCurrentProgramId: (programId: number | undefined) => void,
   
   syncPrograms: () => void
+
+  audioUrl: string | undefined
+  uploadProgramAudioAndSync: (file: File) => void
 
   ledBarConfigs: LedBarConfig[],
 
@@ -58,6 +61,25 @@ export const DmxButtonsContextProvider = ({ children }: {children: React.ReactNo
   useEffect(() => {
     fetchDmxButtons()
   }, [program])
+
+  const [audioUrl, setAudioUrl] = useState(undefined as string | undefined)
+
+  const syncProgramAudio = () => {
+    if(!program) {
+      setAudioUrl(undefined)
+      return
+    }
+    getProgramAudio(program.id).then((audioUrl) => setAudioUrl(audioUrl || undefined))
+  }
+
+  useEffect(syncProgramAudio, [program?.id])
+
+  // Free the previous blob once consumers switched to the new one
+  useEffect(() => () => { if(audioUrl) URL.revokeObjectURL(audioUrl) }, [audioUrl])
+
+  const uploadProgramAudioAndSync = (file: File) => {
+    program && uploadProgramAudio(program.id, file).then(syncProgramAudio)
+  }
 
   useEffect(() => {
     if(currentProgramId) {
@@ -147,6 +169,8 @@ export const DmxButtonsContextProvider = ({ children }: {children: React.ReactNo
         program, programs, fetchPrograms: syncPrograms,
 
         syncPrograms,
+
+        audioUrl, uploadProgramAudioAndSync,
 
         currentProgramId, setCurrentProgramId,
 
