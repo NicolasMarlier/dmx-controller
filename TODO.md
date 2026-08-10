@@ -18,7 +18,7 @@
 
 - M3 Full concert data
 [ ] Full concert .midis
-[ ] Manual buttons to play with lights
+[X] Manual buttons to play with lights
 
 
 - M4 Delight
