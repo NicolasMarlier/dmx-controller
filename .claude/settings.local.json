@@ -30,7 +30,8 @@
       "Bash(sudo xcodebuild -runFirstLaunch)",
       "Bash(xcodebuild -runFirstLaunch)",
       "Bash(echo \"Metro PID: $!\")",
-      "Bash(curl -s http://localhost:8081/status)"
+      "Bash(curl -s http://localhost:8081/status)",
+      "Bash(docker exec *)"
     ]
   }
 }

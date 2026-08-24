@@ -65,6 +65,19 @@
         }
     }
 
+    .global-indicator {
+        position: absolute;
+        top: 50%;
+        left: 50%;
+        width: 20px;
+        height: 20px;
+        line-height: 20px;
+        margin: -10px 0 0 -10px;
+        font-family: Georgia, 'Times New Roman', Times, serif;
+        font-size: 25px;
+        color: #ffffff44;
+    }
+
     &.playing {
         .playing-light {
             background-color: #8fdf61;

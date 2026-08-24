@@ -4,7 +4,7 @@ type MidiKey = number
 
 type DmxButton = {
     id: string
-    program_id: number
+    program_id: number | null
     color: string
     duration_ms: number
     red_channels: number[]
@@ -27,6 +27,7 @@ type DmxButtonUpdateParams = {
     red_channels?: number[]
     nature?: DmxEffectNature
     triggering_midi_key?: MidiKey | null
+    program_id?: number | null
 }
 
 type DmxHexSignal = string

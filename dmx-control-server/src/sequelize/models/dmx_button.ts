@@ -10,7 +10,7 @@ import {
 
 export class DmxButton extends Model<InferAttributes<DmxButton>, InferCreationAttributes<DmxButton>> {
   declare id: CreationOptional<string>
-  declare program_id: number
+  declare program_id: number | null
   declare color: string
   declare duration_ms: number
   declare red_channels: number[]
@@ -28,7 +28,7 @@ export class DmxButton extends Model<InferAttributes<DmxButton>, InferCreationAt
 
         program_id: {
           type: DataTypes.INTEGER,
-          allowNull: false,
+          allowNull: true,
         },
 
         color: {

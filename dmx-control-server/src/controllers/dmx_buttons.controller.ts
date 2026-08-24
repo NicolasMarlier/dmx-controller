@@ -2,6 +2,7 @@ import { Request, Response } from "express"
 import { DmxButton } from "../sequelize/models/dmx_button";
 import { DmxLoop } from "../dmx_loop";
 import { handleErrors, NotFoundError, validateQueryParam, validateUrlParam } from "./application.controller";
+import { Op } from "sequelize";
 
 
 const getButton = async(req: Request) => {
@@ -19,8 +20,8 @@ export class DmxButtonController {
     handleErrors(req, res, async() => {
       const programId = validateQueryParam(req, 'program_id')
       const buttons = await DmxButton.findAll({
-        where: {program_id: programId},
-        order: [["created_at", "ASC"]],
+        where: {[Op.or]: [{program_id: programId}, {program_id: null}]},
+        order: [["program_id", "DESC", ], ["created_at", "ASC"]],
       })
 
       res.json(buttons)
@@ -64,7 +65,7 @@ export class DmxButtonController {
     handleErrors(req, res, async() => {
       const button = await getButton(req)
       await button.update({
-        program_id: req.body.program_id ?? button.program_id,
+        program_id: 'program_id' in req.body ? req.body.program_id : button.program_id,
         color: req.body.color ?? button.color,
         duration_ms: req.body.duration_ms ?? button.duration_ms,
         red_channels: req.body.red_channels ?? button.red_channels,

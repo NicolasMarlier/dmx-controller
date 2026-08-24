@@ -10,6 +10,7 @@ import DmxToggle from "./dmx/effects/DmxToggle"
 import { Program } from "./sequelize/models/program"
 import { DmxMidiHandler } from "./dmx_midi_handler"
 import DmxInverseRun from "./dmx/effects/DmxInverseRun"
+import { Op } from "sequelize"
 
 const LOOP_INTERVAL_MS = 20
 
@@ -67,7 +68,7 @@ export class DmxLoop extends EventEmitter {
     }
 
     resyncDmxButtons = async() => {
-        this.dmxButtons = await DmxButton.findAll({where: {program_id: this.current_program_id},})
+        this.dmxButtons = await DmxButton.findAll({where: {[Op.or]: [{program_id: this.current_program_id}, {program_id: null}]},})
     }    
 
     areDmxButtonChannelsBlack = (dmxButton: DmxButton) => dmxButton.red_channels.every((redChannel) => (

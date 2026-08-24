@@ -29,6 +29,7 @@ const DmxButton = (props: Props) => {
             { dmxButton.triggering_midi_key && <div className="triggering-midi-key">
                 { humanizeMidiKey(dmxButton.triggering_midi_key) }
             </div> }
+            { dmxButton.program_id == null && <div className="global-indicator">G</div>}
             <div className='color-symbols'>
                 { ledBarConfigs.map(ledBarConfig => (
                     <div className='color-symbol' style={isLighted(dmxButton, ledBarConfig) ? {background: dmxButton.color} : {}}/>
