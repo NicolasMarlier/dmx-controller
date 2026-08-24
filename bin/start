@@ -1,4 +1,10 @@
 #!/bin/bash
+#
+# Dev launcher: the vite dev server and the API server with HMR, on the dev
+# ports (5173/3000/8080). It provisions the same dockerized postgres as
+# bin/full_start (port 5433, not the machine-wide 5432), so both launchers work
+# on one database. The container is left running on exit so the next start is
+# instant; set DMX_STOP_DB=1 to stop it too.
 
 ROOT=$(cd "$(dirname "$0")/.." && pwd)
 
@@ -9,13 +15,23 @@ prefix_output() {
   done
 }
 
+log() { echo "[start] $*"; }
+die() { echo "[start] ERROR: $*" >&2; exit 1; }
+
+source "$ROOT/bin/lib/postgres.sh"
+
+ensure_docker
+ensure_postgres
+seed_db_if_fresh
+run_migrations
+
 (cd "$ROOT/dmx-control-client" && yarn dev 2>&1 | prefix_output "client") &
 CLIENT_PID=$!
 
 (cd "$ROOT/dmx-control-server" && yarn dev 2>&1 | prefix_output "server") &
 SERVER_PID=$!
 
-trap "kill $CLIENT_PID $SERVER_PID 2>/dev/null" EXIT INT TERM
+trap 'kill $CLIENT_PID $SERVER_PID 2>/dev/null; stop_db_if_requested' EXIT INT TERM
 
 open 'http://localhost:5173'
 

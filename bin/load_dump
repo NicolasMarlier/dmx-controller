@@ -1,12 +1,49 @@
 #!/usr/bin/env bash
+#
+# Restores a dump, replacing the database contents.
+#
+# The dumps carry bare CREATE TABLEs (pg_dump without --clean), so loading one
+# into a populated database would fail on every table and then append the COPY
+# rows on top. We therefore drop the public schema first: what you get is
+# exactly the dump, never a merge.
+#
+# The whole thing runs in one transaction, so a failed load leaves the database
+# untouched rather than empty.
+
 set -euo pipefail
 
 DB_NAME="${DATABASE:-dmx_control}"
 DB_USER="${DB_USER:-postgres}"
 DB_HOST="${DB_HOST:-127.0.0.1}"
-DB_PORT="${DB_PORT:-5432}"
+# The dockerized postgres from bin/lib/postgres.sh, not the machine-wide 5432.
+DB_PORT="${DB_PORT:-${DMX_DB_PORT:-5433}}"
 
-INPUT_FILE="${1:?Usage: $0 <dump_file>}"
+ASSUME_YES="${DMX_YES:-0}"
+if [ "${1:-}" = "-y" ]; then ASSUME_YES=1; shift; fi
 
-psql -h "$DB_HOST" -p "$DB_PORT" -U "$DB_USER" "$DB_NAME" < "$INPUT_FILE"
+INPUT_FILE="${1:?Usage: $0 [-y] <dump_file>}"
+[ -f "$INPUT_FILE" ] || { echo "No such dump file: $INPUT_FILE" >&2; exit 1; }
+
+# This wipes real data, so say what is about to happen and ask -- unless the
+# caller already decided (-y, or a non-interactive run).
+if [ "$ASSUME_YES" != "1" ] && [ -t 0 ]; then
+  echo "About to ERASE $DB_NAME on $DB_HOST:$DB_PORT and replace it with:"
+  echo "  $INPUT_FILE"
+  read -r -p "Continue? [y/N] " reply
+  case "$reply" in
+    [yY]|[yY][eE][sS]) ;;
+    *) echo "Aborted."; exit 1 ;;
+  esac
+fi
+
+# lock_timeout: a running server holding table locks would otherwise make the
+# DROP wait forever. Fail fast instead -- the fix is to stop the app and retry.
+{
+  echo "SET lock_timeout = '10s';"
+  echo "DROP SCHEMA IF EXISTS public CASCADE;"
+  echo "CREATE SCHEMA public;"
+  cat "$INPUT_FILE"
+} | psql -h "$DB_HOST" -p "$DB_PORT" -U "$DB_USER" "$DB_NAME" \
+      --single-transaction -v ON_ERROR_STOP=1 -q -o /dev/null
+
 echo "Loaded $INPUT_FILE into $DB_NAME"

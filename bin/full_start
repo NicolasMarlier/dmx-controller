@@ -8,9 +8,8 @@
 #   5. A chromeless browser window pointed at the client
 #
 # It runs on its own ports (5273/3100/8180) rather than the dev ones
-# (5173/3000/8080), so `bin/start` can stay up alongside it. Note that the two
-# then use different databases: this one the docker postgres on 5433, bin/start
-# whatever is on 5432 (Postgres.app).
+# (5173/3000/8080), so `bin/start` can stay up alongside it. Both share the same
+# docker postgres on 5433 (see bin/lib/postgres.sh), so they see the same data.
 #
 # Closing the browser window (or Ctrl-C) shuts everything back down.
 # The postgres container is left running so the next start is instant;
@@ -25,11 +24,6 @@ set -uo pipefail
 
 ROOT=$(cd "$(dirname "$0")/.." && pwd)
 
-CONTAINER="${DMX_DB_CONTAINER:-dmx-control-postgres}"
-VOLUME="${DMX_DB_VOLUME:-dmx-control-pgdata}"
-IMAGE="${DMX_DB_IMAGE:-postgres:18}"
-DB_PORT="${DMX_DB_PORT:-5433}"
-DB_NAME="${DMX_DB_NAME:-dmx_control}"
 # Dedicated ports, deliberately not the dev ones (5173/3000/8080), so the app
 # and a bin/start dev session can run side by side.
 CLIENT_PORT="${DMX_CLIENT_PORT:-5273}"
@@ -46,9 +40,6 @@ export HTTP_PORT WS_PORT
 export VITE_API_URL="http://localhost:${HTTP_PORT}"
 export VITE_WS_URL="ws://127.0.0.1:${WS_PORT}"
 
-# The server and sequelize-cli both read this.
-export DATABASE_URL="postgres://postgres@localhost:${DB_PORT}/${DB_NAME}"
-
 STATE_DIR="$HOME/Library/Application Support/dmx-control"
 PIDFILE="$STATE_DIR/full_start.pid"
 MIGRATION_STAMP="$STATE_DIR/migrations.stamp"
@@ -63,6 +54,10 @@ prefix_output() {
     echo "[$label] $line"
   done
 }
+
+# Docker + postgres provisioning, shared with bin/start. Sourced after the log
+# helpers above so it uses them, and it exports DATABASE_URL.
+source "$ROOT/bin/lib/postgres.sh"
 
 port_pids() {
   lsof -nP -iTCP:"$1" -sTCP:LISTEN -t 2>/dev/null | sort -u | tr '\n' ' '
@@ -285,71 +280,15 @@ Quit it first, or re-run with DMX_KILL_EXISTING=1 to take it down automatically.
 fi
 
 
-# --- 1. Docker ---------------------------------------------------------------
+# --- 1 + 2. Docker and the postgres container --------------------------------
 
-command -v docker >/dev/null 2>&1 || die "docker not found in PATH"
-
-if ! docker info >/dev/null 2>&1; then
-  log "Docker is not running, starting Docker Desktop..."
-  open -ga Docker || die "could not launch Docker Desktop"
-  i=0
-  while [ $i -lt 90 ]; do
-    docker info >/dev/null 2>&1 && break
-    sleep 2
-    i=$((i + 1))
-  done
-  docker info >/dev/null 2>&1 || die "Docker did not become ready in time"
-fi
-log "Docker is ready"
-
-
-# --- 2. Postgres container ---------------------------------------------------
-
-STATUS=$(docker inspect -f '{{.State.Status}}' "$CONTAINER" 2>/dev/null) || STATUS="missing"
-FRESH_DB=0
-
-if [ "$STATUS" = "running" ]; then
-  log "Postgres container '$CONTAINER' already running"
-elif [ "$STATUS" = "missing" ]; then
-  # No volume yet means we are creating the database from scratch.
-  docker volume inspect "$VOLUME" >/dev/null 2>&1 || FRESH_DB=1
-  log "Creating postgres container '$CONTAINER' ($IMAGE) on port $DB_PORT"
-  docker run -d \
-    --name "$CONTAINER" \
-    -e POSTGRES_HOST_AUTH_METHOD=trust \
-    -e POSTGRES_DB="$DB_NAME" \
-    -p "127.0.0.1:${DB_PORT}:5432" \
-    -v "${VOLUME}:/var/lib/postgresql" \
-    "$IMAGE" >/dev/null || die "could not start the postgres container"
-else
-  log "Restarting postgres container '$CONTAINER' (was $STATUS)"
-  docker start "$CONTAINER" >/dev/null || die "could not restart the postgres container"
-fi
-
-log "Waiting for postgres..."
-i=0
-while [ $i -lt 60 ]; do
-  docker exec "$CONTAINER" pg_isready -U postgres -d "$DB_NAME" >/dev/null 2>&1 && break
-  sleep 1
-  i=$((i + 1))
-done
-docker exec "$CONTAINER" pg_isready -U postgres -d "$DB_NAME" >/dev/null 2>&1 \
-  || die "postgres never became ready (docker logs $CONTAINER)"
-log "Postgres ready on $DATABASE_URL"
+ensure_docker
+ensure_postgres
 
 
 # --- 3. Seed + migrations ----------------------------------------------------
 
-if [ "$FRESH_DB" = "1" ]; then
-  LATEST_DUMP=$(ls -1 "$ROOT/dmx-control-server/dumps"/*.sql 2>/dev/null | tail -1)
-  if [ -n "$LATEST_DUMP" ]; then
-    log "Fresh database, loading $(basename "$LATEST_DUMP")"
-    docker exec -i "$CONTAINER" psql -q -U postgres -d "$DB_NAME" < "$LATEST_DUMP" >/dev/null \
-      || log "WARNING: loading the dump reported errors, continuing"
-  else
-    log "Fresh database, no dump to load"
-  fi
-fi
+seed_db_if_fresh
 
 if [ ! -d "$ROOT/dmx-control-server/node_modules" ]; then
   log "Installing server dependencies..."
@@ -360,16 +299,7 @@ if [ ! -d "$ROOT/dmx-control-client/node_modules" ]; then
   (cd "$ROOT/dmx-control-client" && yarn install) || die "yarn install failed (client)"
 fi
 
-# sequelize-cli costs a few seconds, so only pay it when a migration was added.
-NEWEST_MIGRATION=$(ls -t "$ROOT/dmx-control-server/migrations"/*.js 2>/dev/null | head -1)
-if [ "$FRESH_DB" = "1" ] || [ ! -f "$MIGRATION_STAMP" ] || [ "$NEWEST_MIGRATION" -nt "$MIGRATION_STAMP" ]; then
-  log "Running migrations..."
-  (cd "$ROOT/dmx-control-server" && npx sequelize-cli db:migrate --url "$DATABASE_URL" 2>&1 | prefix_output "migrate") \
-    || die "migrations failed"
-  touch "$MIGRATION_STAMP"
-else
-  log "No new migrations"
-fi
+run_migrations
 
 
 # --- 4. Server + client ------------------------------------------------------
@@ -450,10 +380,7 @@ cleanup() {
       fi
     done
   done
-  if [ "${DMX_STOP_DB:-0}" = "1" ]; then
-    log "Stopping postgres container"
-    docker stop "$CONTAINER" >/dev/null 2>&1
-  fi
+  stop_db_if_requested
   exit 0
 }
 trap cleanup EXIT INT TERM

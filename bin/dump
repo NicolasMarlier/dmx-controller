@@ -4,7 +4,8 @@ set -euo pipefail
 DB_NAME="${DATABASE:-dmx_control}"
 DB_USER="${DB_USER:-postgres}"
 DB_HOST="${DB_HOST:-127.0.0.1}"
-DB_PORT="${DB_PORT:-5432}"
+# The dockerized postgres from bin/lib/postgres.sh, not the machine-wide 5432.
+DB_PORT="${DB_PORT:-${DMX_DB_PORT:-5433}}"
 DUMPS_DIR="$(dirname "$0")/../dmx-control-server/dumps"
 mkdir -p "$DUMPS_DIR"
 OUTPUT_FILE="${1:-$DUMPS_DIR/dump_$(date +%Y%m%d_%H%M%S).sql}"

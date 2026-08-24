@@ -7,7 +7,7 @@ import { Program } from "./models/program";
 
 export const initSequelize = () => {
     const sequelize = new Sequelize(
-        process.env.DATABASE_URL || 'postgres://postgres@localhost:5432/dmx_control',
+        process.env.DATABASE_URL || 'postgres://postgres@localhost:5433/dmx_control',
         {
             logging: false,
             //logQueryParameters: true,
