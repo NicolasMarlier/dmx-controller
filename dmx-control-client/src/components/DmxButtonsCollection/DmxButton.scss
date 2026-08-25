@@ -18,6 +18,11 @@
     .playing-light {
         position: absolute;
     }
+
+    &.global {
+        background: #181818;
+        border-color: #333;
+    }
     &:hover {
         top: 1px;
         left: 1px;
@@ -63,19 +68,6 @@
             flex: 0 1 1px;
             width: 6px;
         }
-    }
-
-    .global-indicator {
-        position: absolute;
-        top: 50%;
-        left: 50%;
-        width: 20px;
-        height: 20px;
-        line-height: 20px;
-        margin: -10px 0 0 -10px;
-        font-family: Georgia, 'Times New Roman', Times, serif;
-        font-size: 25px;
-        color: #ffffff44;
     }
 
     &.playing {
