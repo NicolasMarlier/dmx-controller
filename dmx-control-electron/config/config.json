@@ -1,0 +1,6 @@
+{
+  "development": {
+    "database": "sequelize.sqlite",
+    "dialect": "sqlite"
+  }
+}
