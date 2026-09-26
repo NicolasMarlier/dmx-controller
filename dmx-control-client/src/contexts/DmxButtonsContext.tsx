@@ -97,6 +97,12 @@ export const DmxButtonsContextProvider = ({ children }: {children: React.ReactNo
     43,
     45,
     48,
+    49,
+    50,
+    51,
+    52,
+    53,
+    54
   ].filter(s => !dmxButtons.map(d => d.triggering_midi_key).includes(s))[0]
 
   const createDmxButtonAndSync = () => {

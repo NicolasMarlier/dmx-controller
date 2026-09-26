@@ -1,6 +1,10 @@
 {
   "development": {
-    "database": "sequelize.sqlite",
+    "storage": "./main.sqlite",
     "dialect": "sqlite"
+  },
+  "test": {
+    "dialect": "sqlite",
+    "storage": ":memory:"
   }
 }

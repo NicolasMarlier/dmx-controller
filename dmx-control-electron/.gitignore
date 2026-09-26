@@ -90,3 +90,12 @@ typings/
 
 # Electron-Forge
 out/
+
+
+uploads/audio/
+!uploads/audio/.keep
+
+dumps/
+!dumps/.keep
+
+main.sqlite

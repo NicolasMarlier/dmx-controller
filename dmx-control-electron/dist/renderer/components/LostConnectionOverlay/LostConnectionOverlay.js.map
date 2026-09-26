@@ -1,0 +1,1 @@
+{"version":3,"file":"LostConnectionOverlay.js","sourceRoot":"","sources":["../../../../src/renderer/components/LostConnectionOverlay/LostConnectionOverlay.tsx"],"names":[],"mappings":";;;AAAA,wCAAqC;AAErC,MAAM,qBAAqB,GAAG,GAAG,EAAE;IAC/B,OAAO,iCAAK,SAAS,EAAC,SAAS,aAC3B,gCAAK,SAAS,EAAC,eAAe,gCAAsB,EACpD,wEAAoC,IAClC,CAAA;AACV,CAAC,CAAA;AAED,kBAAe,qBAAqB,CAAA"}

@@ -9,7 +9,7 @@ import { Program } from "./models/program";
 export const initSequelize = () => {
     const sequelize = new Sequelize({
         dialect: SqliteDialect,
-        storage: 'sequelize.sqlite'
+        storage: 'main.sqlite'
     });
 
     Program.initModel(sequelize)

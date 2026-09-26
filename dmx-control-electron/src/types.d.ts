@@ -40,6 +40,11 @@ type Program = {
     bpm: number
 }
 
+type ProgramCreationParams = {
+    name: string
+    bpm?: number
+}
+
 type ProgramUpdateParams = {
     name?: string
     id?: number
@@ -113,4 +118,20 @@ type LedBarStyle = {
     right?: string,
     top?: string,
     bottom?: string
+}
+
+type DmxTriggerState = 'up' | 'down'
+type DmxButtonTrigger = {
+    at: number
+    state: DmxTriggerState
+}
+
+
+type EntecOpenDMXUSBState = "Not connected" | "Connected" | "Initializing" | "Identified";
+type DmxSignalParams = {
+    enttecOpenDMXUSB: {
+        state: EntecOpenDMXUSBState
+    },
+    dmxHexSignal: DmxHexSignal,
+    midiCurrentTick: number
 }

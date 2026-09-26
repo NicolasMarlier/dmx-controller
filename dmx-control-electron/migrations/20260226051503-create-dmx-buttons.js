@@ -12,7 +12,7 @@ module.exports = {
 
       program_id: {
         type: Sequelize.INTEGER,
-        allowNull: false,
+        allowNull: true,
         references: {
           model: "programs",
           key: "id",
