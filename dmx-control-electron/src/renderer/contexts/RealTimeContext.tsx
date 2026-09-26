@@ -53,18 +53,8 @@ export const RealTimeContextProvider = ({ children }: {children: React.ReactNode
 
     const debug = false
     
-    // const { lastMessage, readyState, sendMessage } = useWebSocket(WS_URL, {
-    //       shouldReconnect: () => true,
-    //       queryParams: { },
-    //       share: true,
-    //       onError: (error) => {
-    //         console.error('WebSocket connection error:', error)
-    //       }
-    // })
-
-    const lastMessage = null as {data: string} | null
     const readyState: ReadyState = "open"
-    const sendMessage = (d: string) => new Promise((_, reject) => reject())
+
 
     useEffect(() => {
       if(!!lastReceivedMidiKey) {
@@ -91,60 +81,47 @@ export const RealTimeContextProvider = ({ children }: {children: React.ReactNode
       syncPrograms()
     }) 
 
-    useEffect(() => {
-      if(lastMessage !== null) {
-        const jsonMessage = JSON.parse(lastMessage.data)
-        if(debug) {
-          setDebugIncomingWsPayloads(p => [...[jsonMessage], ...p])
-        }
-        if(jsonMessage.channel === 'dmx') {
-          const {
-            enttecOpenDMXUSB: {
-              state: state
-            },
-            dmxHexSignal: dmxHexSignal,
-            midiCurrentTick: midiCurrentTick
-          } = jsonMessage.data
-          setEnttecOpenUSBState(state)
-          setDmxHexSignal(dmxHexSignal)
-          midiCurrentTickRef.current = midiCurrentTick
-        }
-        else if(jsonMessage.channel === 'control') {
-          if(jsonMessage.action == 'change_program') {
-            setCurrentProgramId(jsonMessage.data.program_id)
-            syncPrograms()
-          }
-        }
-        else if(jsonMessage.channel === 'midi_input') {
-          if(jsonMessage.action == 'note_on') {
-            const message = jsonMessage.data as WSMidiNoteOnMessage
-            setLastReceivedMidiKey({
-              midi: message.midi,
-              at: Date.now()
-            })
-          }
-        }
-        else {
-          console.log("Received unknown WS message", jsonMessage)
-        }
-      }
-    }, [lastMessage, programs])
-
-    const sendOutgoingMessage = (payload: OutgoingWsPayload) => {
-      if(debug) {
-        setDebugOutgoingWsPayloads(p => [...[payload], ...p])
-      }
-      sendMessage(JSON.stringify(payload))
-    }
+    // useEffect(() => {
+    //   if(lastMessage !== null) {
+    //     const jsonMessage = JSON.parse(lastMessage.data)
+    //     if(debug) {
+    //       setDebugIncomingWsPayloads(p => [...[jsonMessage], ...p])
+    //     }
+    //     if(jsonMessage.channel === 'dmx') {
+    //       const {
+    //         enttecOpenDMXUSB: {
+    //           state: state
+    //         },
+    //         dmxHexSignal: dmxHexSignal,
+    //         midiCurrentTick: midiCurrentTick
+    //       } = jsonMessage.data
+    //       setEnttecOpenUSBState(state)
+    //       setDmxHexSignal(dmxHexSignal)
+    //       midiCurrentTickRef.current = midiCurrentTick
+    //     }
+    //     else if(jsonMessage.channel === 'control') {
+    //       if(jsonMessage.action == 'change_program') {
+    //         setCurrentProgramId(jsonMessage.data.program_id)
+    //         syncPrograms()
+    //       }
+    //     }
+    //     else if(jsonMessage.channel === 'midi_input') {
+    //       if(jsonMessage.action == 'note_on') {
+    //         const message = jsonMessage.data as WSMidiNoteOnMessage
+    //         setLastReceivedMidiKey({
+    //           midi: message.midi,
+    //           at: Date.now()
+    //         })
+    //       }
+    //     }
+    //     else {
+    //       console.log("Received unknown WS message", jsonMessage)
+    //     }
+    //   }
+    // }, [lastMessage, programs])
 
     const sendCurrentTickToServer = (midiCurrentTick: number) => {
-      const payload = {
-        channel: 'dmx-midi-control',
-        data: {
-          midiCurrentTick
-        }
-      } as DmxMidiControlClientToServerWsPayload
-      sendOutgoingMessage(payload)
+      window.dmxControl.api.invoke('main_loop:update_current_tick', midiCurrentTick)
     }
     
 

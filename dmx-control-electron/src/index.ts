@@ -29,8 +29,6 @@ const createWindow = (): void => {
 
   // Open the DevTools.
   //mainWindow.webContents.openDevTools();
-  
-  mainWindow.webContents.send('channel-name', { data: 'hello' });
 };
 
 // This method will be called when Electron has finished

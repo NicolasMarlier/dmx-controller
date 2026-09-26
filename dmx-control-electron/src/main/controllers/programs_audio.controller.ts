@@ -28,6 +28,13 @@ const existingAudioPath = (programId: number): string | null => {
   return candidates.length > 0 ? path.join(UPLOADS_DIR, candidates[0]!) : null
 }
 
+const audioDataUrl = (filename: string) => {
+  const buffer = fs.readFileSync(filename);
+  const mimeType = 'audio/wav';
+  const base64String = buffer.toString('base64');
+  return `data:${mimeType};base64,${base64String}`;
+}
+
 export class ProgramsAudioController {
 
   static upload = (program_id: number) => handleErrors(async() => {
@@ -57,6 +64,8 @@ export class ProgramsAudioController {
     return program
   })
 
+  
+
   static getAudio = async(program_id: number) => handleErrors(async () => {
     const program = await getProgram(program_id)
 
@@ -64,6 +73,8 @@ export class ProgramsAudioController {
     if (!filePath) throw new NotFoundError("No audio file for this program")
 
     // res.sendFile(filePath)
-    return filePath
+
+    
+    return audioDataUrl(filePath)
   })
 }
